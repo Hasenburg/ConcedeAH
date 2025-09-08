@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(osascript:*)",
+      "Bash(xmllint:*)",
+      "Bash(cd:*)",
+      "Bash(/reload)",
+      "Bash(rm:*)",
+      "Bash(mv:*)"
+    ],
+    "deny": []
+  }
+}

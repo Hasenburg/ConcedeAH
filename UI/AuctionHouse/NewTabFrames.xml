@@ -1,0 +1,145 @@
+<Ui xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\..\Blizzard_SharedXML\UI.xsd" xmlns="http://www.blizzard.com/wow/ui/">
+	<!-- Marketplace Frame -->
+	<Frame name="OFAuctionFrameMarketplace" hidden="true" parent="OFAuctionFrame">
+		<Size x="758" y="447"/>
+		<Anchors>
+			<Anchor point="TOPLEFT"/>
+		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString name="OFMarketplaceTitle" inherits="GameFontNormal">
+					<Anchors>
+						<Anchor point="TOP" x="0" y="-18"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<ScrollFrame name="OFMarketplaceScrollFrame" inherits="FauxScrollFrameTemplate">
+				<Size x="550" y="280"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="195" y="-75"/>
+				</Anchors>
+			</ScrollFrame>
+			<Button name="OFMarketplaceFulfillButton" inherits="UIPanelButtonTemplate" text="Buy">
+				<Size x="100" y="25"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-10" y="42"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad function="OFAuctionFrameMarketplace_OnLoad"/>
+			<OnShow function="OFAuctionFrameMarketplace_OnShow"/>
+		</Scripts>
+	</Frame>
+
+
+	<!-- Create Offer Frame -->
+	<Frame name="OFAuctionFrameCreateOffer" hidden="true" parent="OFAuctionFrame">
+		<Size x="758" y="447"/>
+		<Anchors>
+			<Anchor point="TOPLEFT"/>
+		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString name="OFCreateOfferTitle" inherits="GameFontNormal">
+					<Anchors>
+						<Anchor point="TOP" x="0" y="-18"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<!-- Left side: Bag items -->
+			<ScrollFrame name="OFCreateOfferBagScrollFrame" inherits="FauxScrollFrameTemplate">
+				<Size x="200" y="250"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="20" y="-120"/>
+				</Anchors>
+			</ScrollFrame>
+			<!-- Right side: Current offers -->
+			<ScrollFrame name="OFCreateOfferOffersScrollFrame" inherits="FauxScrollFrameTemplate">
+				<Size x="300" y="250"/>
+				<Anchors>
+					<Anchor point="TOPRIGHT" x="-40" y="-120"/>
+				</Anchors>
+			</ScrollFrame>
+			<Button name="OFCreateOfferButton" inherits="UIPanelButtonTemplate" text="Create Offer">
+				<Size x="150" y="25"/>
+				<Anchors>
+					<Anchor point="BOTTOM" x="0" y="42"/>
+				</Anchors>
+			</Button>
+			<EditBox name="OFCreateOfferNote" letters="100" multiLine="true" autoFocus="false">
+				<Size x="172" y="60"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" x="30" y="100"/>
+				</Anchors>
+				<FontString inherits="ChatFontSmall"/>
+			</EditBox>
+		</Frames>
+		<Scripts>
+			<OnLoad function="OFAuctionFrameCreateOffer_OnLoad"/>
+			<OnShow function="OFAuctionFrameCreateOffer_OnShow"/>
+		</Scripts>
+	</Frame>
+
+	<!-- Pending Frame -->
+	<Frame name="OFAuctionFramePending" hidden="true" parent="OFAuctionFrame">
+		<Size x="758" y="447"/>
+		<Anchors>
+			<Anchor point="TOPLEFT"/>
+		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString name="OFPendingTitle" inherits="GameFontNormal">
+					<Anchors>
+						<Anchor point="TOP" x="0" y="-18"/>
+					</Anchors>
+				</FontString>
+				<FontString name="OFPendingBoughtCount" inherits="GameFontNormalSmall">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="30" y="-50"/>
+					</Anchors>
+				</FontString>
+				<FontString name="OFPendingSoldCount" inherits="GameFontNormalSmall">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="200" y="-50"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<ScrollFrame name="OFPendingScrollFrame" inherits="FauxScrollFrameTemplate">
+				<Size x="700" y="320"/>
+				<Anchors>
+					<Anchor point="TOP" x="0" y="-75"/>
+				</Anchors>
+			</ScrollFrame>
+			<Button name="OFPendingSendMailButton" inherits="UIPanelButtonTemplate" text="Send Mail">
+				<Size x="100" y="25"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-230" y="42"/>
+				</Anchors>
+			</Button>
+			<Button name="OFPendingWhisperButton" inherits="UIPanelButtonTemplate" text="Whisper">
+				<Size x="100" y="25"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-120" y="42"/>
+				</Anchors>
+			</Button>
+			<Button name="OFPendingReviewButton" inherits="UIPanelButtonTemplate" text="Review">
+				<Size x="100" y="25"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-10" y="42"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad function="OFAuctionFramePending_OnLoad"/>
+			<OnShow function="OFAuctionFramePending_OnShow"/>
+			<OnEvent function="OFAuctionFramePending_OnEvent"/>
+		</Scripts>
+	</Frame>
+</Ui>
