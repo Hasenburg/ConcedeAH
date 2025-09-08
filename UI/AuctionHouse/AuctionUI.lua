@@ -196,17 +196,7 @@ function OFBrowseBuyoutButton_OnClick(button)
     end
 end
 
-function OFBidWhisperButton_OnClick()
-    local auction = OFAuctionFrame.auction
-    local name = UnitName("player") == auction.owner and auction.buyer or auction.owner
-    ChatFrame_SendTell(name)
-end
-
-function OFBidInviteButton_OnClick()
-    local auction = OFAuctionFrame.auction
-    local name = UnitName("player") == auction.owner and auction.buyer or auction.owner
-    InviteUnit(name)
-end
+-- Whisper and Invite button functions removed
 
 StaticPopupDialogs["OF_CANCEL_AUCTION_PENDING"] = {
     text = "Are you sure you want to cancel this auction?",
@@ -369,6 +359,35 @@ StaticPopupDialogs["OF_DECLARE_BANKRUPTCY"] = {
     exclusive = 1,
     hideOnEscape = 1
 };
+
+StaticPopupDialogs["OF_MARK_TRANSACTION_COMPLETE"] = {
+    text = "Do you want to mark this transaction as completed?\n\nThis will remove it from your pending list.",
+    button1 = "Confirm",
+    button2 = "Cancel",
+    OnAccept = function(self)
+        local auction = OFAuctionFrame.auction
+        if not auction then
+            UIErrorsFrame:AddMessage("No auction selected", 1.0, 0.1, 0.1, 1.0)
+            return
+        end
+        
+        -- Complete the auction/transaction
+        local result, trade, error = ns.AuctionHouseAPI:CompleteAuction(auction.id)
+        if error == nil then
+            print("|cff00ff00Transaction marked as completed and removed from list.|r")
+            OFAuctionFrameBid_Update()
+        else
+            UIErrorsFrame:AddMessage(error, 1.0, 0.1, 0.1, 1.0)
+        end
+    end,
+    OnCancel = function(self)
+        OFBidForgiveLoanButton:Enable()
+    end,
+    showAlert = 1,
+    timeout = 0,
+    exclusive = 1,
+    hideOnEscape = 1
+}
 
 StaticPopupDialogs["OF_MARK_AUCTION_COMPLETE"] = {
     text = "Mark auction complete? This will complete the trade.",
@@ -730,6 +749,28 @@ function OFAuctionFrameSwitchTab(index)
 		OFAuctionFrameBot:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Auction-Bot");
 		OFAuctionFrameBotRight:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Bid-BotRight");
 		OFAuctionFrameBrowse.showOnlyOffers = true  -- Filter to show only offers
+		
+		-- Show Hide My Offers checkbox (now defined in XML)
+		if OFMarketplaceHideMyOffersCheckbox then
+			OFMarketplaceHideMyOffersCheckbox:Show()
+			OFMarketplaceHideMyOffersCheckbox:SetChecked(OFAuctionFrameBrowse.hideMyOffers or false)
+			if OFMarketplaceHideMyOffersCheckbox.text then
+				OFMarketplaceHideMyOffersCheckbox.text:Show()
+			end
+		end
+		
+		-- Hook search box for live updates
+		if OFBrowseName and not OFAuctionFrameBrowse.marketplaceSearchHooked then
+			OFBrowseName:HookScript("OnTextChanged", function()
+				if OFAuctionFrameBrowse.showOnlyOffers then
+					-- Clear cache to force refresh with new search
+					browseResultCache = nil
+					OFAuctionFrameBrowse_Update()
+				end
+			end)
+			OFAuctionFrameBrowse.marketplaceSearchHooked = true
+		end
+		
 		OFAuctionFrameBrowse:Show();
 		OFAuctionFrame.type = "list";
 		-- Set "Seller" for Marketplace tab
@@ -749,6 +790,15 @@ function OFAuctionFrameSwitchTab(index)
 		-- Update browse frame
 		OFAuctionFrameBrowse_Update()
 	elseif ( index == TAB_CREATE_OFFER ) then
+		-- Hide marketplace checkbox when switching away
+		if OFMarketplaceHideMyOffersCheckbox then
+			OFMarketplaceHideMyOffersCheckbox:Hide()
+			if OFMarketplaceHideMyOffersCheckbox.text then
+				OFMarketplaceHideMyOffersCheckbox.text:Hide()
+			end
+		end
+		OFAuctionFrameBrowse.showOnlyOffers = false
+		
 		-- Use existing Auctions frame for Create Offer
         AssignCreateOrderTextures()
 		OFAuctionFrameAuctions:Show();
@@ -767,6 +817,15 @@ function OFAuctionFrameSwitchTab(index)
 	-- elseif ( index == TAB_CREATE_REQUEST ) then -- removed tab
 	-- elseif ( index == TAB_OPEN ) then -- removed tab
     elseif ( index == TAB_PENDING ) then
+		-- Hide marketplace checkbox when switching away
+		if OFMarketplaceHideMyOffersCheckbox then
+			OFMarketplaceHideMyOffersCheckbox:Hide()
+			if OFMarketplaceHideMyOffersCheckbox.text then
+				OFMarketplaceHideMyOffersCheckbox.text:Hide()
+			end
+		end
+		OFAuctionFrameBrowse.showOnlyOffers = false
+		
 		-- Show pending fulfillments
         OFAuctionFrameTopLeft:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Bid-TopLeft");
         OFAuctionFrameTop:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Auction-Top");
@@ -1442,8 +1501,10 @@ local function UpdateItemEntry(index, i, offset, button, item, numBatchAuctions,
 
     -- Hide Level column
     local levelText = _G[buttonName.."Level"]
-    levelText:SetText("")
-    levelText:Hide()
+    if levelText then
+        levelText:SetText("")
+        levelText:Hide()
+    end
 
     Hide("DeathRollIcon")
     Hide("PriceText")
@@ -1757,10 +1818,53 @@ function OFAuctionFrameBrowse_Update()
     if OFAuctionFrameBrowse.showOnlyOffers then
         -- Marketplace tab: Show only offers (selling items, not buying requests)
         local filteredAuctions = {}
+        local searchText = ""
+        local hideMyOffers = false
+        local myName = UnitName("player")
+        
+        -- Get search text from OFBrowseName
+        if OFBrowseName then
+            searchText = OFBrowseName:GetText() or ""
+            if searchText == OF_BROWSE_SEARCH_PLACEHOLDER then
+                searchText = ""
+            end
+        end
+        
+        -- Get Hide My Offers setting
+        if OFAuctionFrameBrowse.hideMyOffers then
+            hideMyOffers = true
+        end
+        
         for _, auction in ipairs(auctions) do
             -- Check if this is a sell offer (not a buy request)
-            if auction.auctionType == ns.AUCTION_TYPE_SELL then
-                table.insert(filteredAuctions, auction)
+            if not auction.isRequest then
+                local shouldShow = true
+                
+                -- Apply Hide My Offers filter
+                if hideMyOffers and auction.owner == myName then
+                    shouldShow = false
+                end
+                
+                -- Apply search filter
+                if shouldShow and searchText ~= "" then
+                    local itemName = ""
+                    if auction.itemID and auction.itemID > 0 then
+                        itemName = GetItemInfo(auction.itemID) or ""
+                    elseif auction.itemName then
+                        itemName = auction.itemName
+                    end
+                    
+                    -- Check if search text matches item name or owner
+                    searchText = string.lower(searchText)
+                    if not (string.find(string.lower(itemName), searchText, 1, true) or
+                            string.find(string.lower(auction.owner or ""), searchText, 1, true)) then
+                        shouldShow = false
+                    end
+                end
+                
+                if shouldShow then
+                    table.insert(filteredAuctions, auction)
+                end
             end
         end
         auctions = filteredAuctions
@@ -1933,50 +2037,106 @@ local function UpdatePendingEntry(index, i, offset, button, auction, numBatchAuc
     itemName:SetText(name)
     itemName:SetVertexColor(color.r, color.g, color.b)
 
-
-    local otherUserText = _G[buttonName.."BidBuyer"]
-    local otherUser
-    if auction.owner == UnitName("player") then
-        otherUser = auction.buyer
-    else
-        otherUser = auction.owner
+    -- Create text elements dynamically for Buyer, Seller, and Date columns
+    -- Since OFBidButtonTemplate inherits from OFBrowseButtonTemplate, we need to create these
+    
+    -- Create or get buyer text element
+    local buyerText = button.buyerText
+    if not buyerText then
+        buyerText = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        button.buyerText = buyerText
     end
-    otherUserText:SetText(ns.GetDisplayName(otherUser))
-
-    local statusText = _G[buttonName.."BidStatus"]
-    statusText:SetText(ns.GetAuctionStatusDisplayString(auction))
+    
+    -- Create or get seller text element  
+    local sellerText = button.sellerText
+    if not sellerText then
+        sellerText = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        button.sellerText = sellerText
+    end
+    
+    -- Create or get date text element
+    local dateText = button.dateText
+    if not dateText then
+        dateText = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        button.dateText = dateText
+    end
+    
+    -- Set buyer text
+    local buyerName = auction.buyer or "-"
+    buyerText:SetText(buyerName)
+    buyerText:ClearAllPoints()
+    buyerText:SetPoint("LEFT", button, "LEFT", 390, 0) -- After Item column (330px + 60px padding)
+    buyerText:SetWidth(110)
+    buyerText:SetJustifyH("LEFT")
+    buyerText:Show()
+    
+    -- Set seller text
+    local sellerName = auction.owner or "-"
+    sellerText:SetText(sellerName)
+    sellerText:ClearAllPoints()
+    sellerText:SetPoint("LEFT", button, "LEFT", 500, 0) -- After Buyer column (390 + 110)
+    sellerText:SetWidth(110)
+    sellerText:SetJustifyH("LEFT")
+    sellerText:Show()
+    
+    -- Set date text
+    local dateStr = ""
+    if auction.timestamp then
+        dateStr = date("%m/%d %H:%M", auction.timestamp)
+    elseif auction.createdAt then
+        dateStr = date("%m/%d %H:%M", auction.createdAt)
+    elseif auction.updatedAt then
+        dateStr = date("%m/%d %H:%M", auction.updatedAt)
+    else
+        dateStr = "Recently"
+    end
+    dateText:SetText(dateStr)
+    dateText:ClearAllPoints()
+    dateText:SetPoint("LEFT", button, "LEFT", 600, 0) -- After Seller column (500 + 100) - moved 10px left
+    dateText:SetWidth(100)
+    dateText:SetJustifyH("LEFT")
+    dateText:Show()
 
     -- Set item texture, count, and usability
     local iconTexture = _G[buttonName.."ItemIconTexture"]
-    iconTexture:SetTexture(texture)
-    if ( not canUse ) then
-        iconTexture:SetVertexColor(1.0, 0.1, 0.1)
-    else
-        iconTexture:SetVertexColor(1.0, 1.0, 1.0)
+    if iconTexture then
+        iconTexture:SetTexture(texture)
+        if ( not canUse ) then
+            iconTexture:SetVertexColor(1.0, 0.1, 0.1)
+        else
+            iconTexture:SetVertexColor(1.0, 1.0, 1.0)
+        end
     end
     local itemCount = _G[buttonName.."ItemCount"]
-    if auction.itemID ~= ns.ITEM_ID_GOLD and count > 1 then
-        itemCount:SetText(count)
-        itemCount:Show()
-    else
-        itemCount:Hide()
+    if itemCount then
+        if auction.itemID ~= ns.ITEM_ID_GOLD and count > 1 then
+            itemCount:SetText(count)
+            itemCount:Show()
+        else
+            itemCount:Hide()
+        end
     end
 
-    -- Hide Misc/Delivery column
-    local deliveryTypeFrame = _G[buttonName.."DeliveryType"]
-    if deliveryTypeFrame then
-        deliveryTypeFrame:Hide()
+    -- Hide unused elements that might exist from parent template
+    local elements_to_hide = {
+        buttonName.."DeliveryType",
+        buttonName.."AuctionTypeText", 
+        buttonName.."RatingFrame",
+        buttonName.."BidStatus",
+        buttonName.."StatusTooltipFrame",
+        buttonName.."HighBidderName",
+        buttonName.."BidBuyer",
+        buttonName.."DeliveryTypeText",
+        buttonName.."RequestItem"
+    }
+    
+    for _, elementName in ipairs(elements_to_hide) do
+        local element = _G[elementName]
+        if element then
+            element:Hide()
+        end
     end
-
-    local auctionType = auction.wish and ns.AUCTION_TYPE_BUY or ns.AUCTION_TYPE_SELL
-    local auctionTypeText = _G[buttonName.."AuctionTypeText"]
-    auctionTypeText:SetText(ns.GetAuctionTypeDisplayString(auctionType))
-
-    _G[buttonName.."RatingFrame"].ratingWidget:SetRating(ns.AuctionHouseAPI:GetAverageRatingForUser(otherUser))
-
-    local statusTooltip = _G[buttonName.."StatusTooltipFrame"]
-    statusTooltip.tooltip = ns.GetAuctionStatusTooltip(auction)
-
+    
     -- Set buyout price
     UpdatePrice(buttonName, auction)
 
@@ -1997,33 +2157,36 @@ local function UpdatePendingEntry(index, i, offset, button, auction, numBatchAuc
             isOwner = auction.owner == me
         end
         local otherMember = auction.owner == me and auction.buyer or auction.owner
-        if ns.GuildRegister:IsMemberOnline(otherMember) then
-            OFBidWhisperButton:Enable()
-            OFBidInviteButton:Enable()
-        end
+        -- Whisper and Invite buttons removed
         local isLoan = auction.status == ns.AUCTION_STATUS_SENT_LOAN or auction.status == ns.AUCTION_STATUS_PENDING_LOAN
+        
+        -- Set button text
         if ns.IsSpellItem(auction.itemID) then
-            OFBidForgiveLoanButtonText:SetText("Mark Auction Complete")
-            if auction.owner == me then
-                OFBidForgiveLoanButton:Enable()
-            end
+            OFBidForgiveLoanButtonText:SetText("Mark as Completed")
         elseif isLoan and auction.owner ~= me then
             OFBidForgiveLoanButtonText:SetText("Declare Bankruptcy")
-            if auction.status == ns.AUCTION_STATUS_SENT_LOAN then
-                OFBidForgiveLoanButton:Enable()
-            end
         else
-            OFBidForgiveLoanButtonText:SetText("Mark Loan Complete")
+            OFBidForgiveLoanButtonText:SetText("Mark as Completed")
+        end
+        
+        -- Enable Mark as Completed button for appropriate statuses
+        if auction.status == ns.AUCTION_STATUS_PENDING_TRADE or 
+           auction.status == ns.AUCTION_STATUS_PENDING_LOAN or
+           auction.status == ns.AUCTION_STATUS_SENT_COD or
+           auction.status == ns.AUCTION_STATUS_SENT_LOAN or
+           (ns.IsSpellItem(auction.itemID) and auction.owner == me) then
+            OFBidForgiveLoanButton:Enable()
+        else
+            OFBidForgiveLoanButton:Disable()
         end
 
-        if not isOwner then
-            -- auction can't be cancelled
-        elseif auction.status == ns.AUCTION_STATUS_SENT_LOAN then
-            OFBidForgiveLoanButton:Enable()
-        elseif auction.status == ns.AUCTION_STATUS_SENT_COD then
-            -- auction can't be cancelled
-        else
+        -- Enable Cancel button for owner if auction can be cancelled
+        if isOwner and (auction.status == ns.AUCTION_STATUS_PENDING_TRADE or 
+                        auction.status == ns.AUCTION_STATUS_PENDING_LOAN or
+                        auction.status == ns.AUCTION_STATUS_ACTIVE) then
             OFBidCancelAuctionButton:Enable()
+        else
+            OFBidCancelAuctionButton:Disable()
         end
         OFAuctionFrame.buyoutPrice = buyoutPrice;
         OFAuctionFrame.auction = auction
@@ -2074,16 +2237,12 @@ function OFAuctionFrameBid_Update()
 	local isLastSlotEmpty;
     OFBidCancelAuctionButton:Disable()
     OFBidForgiveLoanButton:Disable()
-    OFBidWhisperButton:Disable()
-    OFBidInviteButton:Disable()
 
     -- Update sort arrows
 	OFSortButton_UpdateArrow(OFBidQualitySort, "bidder", "quality")
-    OFSortButton_UpdateArrow(OFBidTypeSort, "bidder", "type")
-    OFSortButton_UpdateArrow(OFBidDeliverySort, "bidder", "delivery")
-    OFSortButton_UpdateArrow(OFBidBuyerName, "bidder", "buyer")
-    OFSortButton_UpdateArrow(OFBidRatingSort, "bidder", "rating")
-    OFSortButton_UpdateArrow(OFBidStatusSort, "bidder", "status")
+    OFSortButton_UpdateArrow(OFBidBuyerSort, "bidder", "buyer")
+    OFSortButton_UpdateArrow(OFBidSellerSort, "bidder", "seller")
+    OFSortButton_UpdateArrow(OFBidDateSort, "bidder", "date")
 	OFSortButton_UpdateArrow(OFBidBidSort, "bidder", "bid")
 
 	for i=1, OF_NUM_BIDS_TO_DISPLAY do
@@ -2326,13 +2485,13 @@ function OFAuctionFrameAuctions_OnShow()
     local currentTab = OFAuctionFrame.selectedTab
     
     if OFAuctionFrameAuctions.isRequestMode then
-        OFAuctionsTitle:SetFormattedText("OnlyFangs AH - Create Request")
+        OFAuctionsTitle:SetFormattedText("ConcedeAH - Create Request")
         -- Hide offer-specific elements and show request elements
         if OFAuctionsCreateAuctionButton then
             OFAuctionsCreateAuctionButton:SetText("Create Request")
         end
     else
-        OFAuctionsTitle:SetFormattedText("OnlyFangs AH - Create Offer")
+        OFAuctionsTitle:SetFormattedText("ConcedeAH - Create Offer")
         if OFAuctionsCreateAuctionButton then
             OFAuctionsCreateAuctionButton:SetText("Create Offer")
         end
@@ -3156,13 +3315,8 @@ function OFCloseAuctionStaticPopups()
 end
 
 function OFBidForgiveLoanButton_OnClick(self)
-    if ns.IsSpellItem(OFAuctionFrame.auction.itemID) then
-        StaticPopup_Show("OF_MARK_AUCTION_COMPLETE")
-    elseif OFAuctionFrame.auction.owner == UnitName("player") then
-        StaticPopup_Show("OF_FORGIVE_LOAN")
-    else
-        StaticPopup_Show("OF_DECLARE_BANKRUPTCY")
-    end
+    -- Always show the simple completion dialog for "Mark as Completed" button
+    StaticPopup_Show("OF_MARK_TRANSACTION_COMPLETE")
     self:Disable()
 end
 

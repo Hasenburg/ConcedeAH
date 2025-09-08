@@ -7,7 +7,7 @@ local API = ns.AuctionHouseAPI
 
 
 local COMM_PREFIX = "OFAuctionHouse"
-local OF_COMM_PREFIX = "OnlyFangsAddon"
+local OF_COMM_PREFIX = "ConcedeAddon"
 local T_AUCTION_STATE_REQUEST = "AUCTION_STATE_REQUEST"
 local T_AUCTION_STATE = "AUCTION_STATE"
 
@@ -51,18 +51,22 @@ local ADMIN_USERS = {
 -- Constants
 local TEST_USERS = {
     ["Zgfarmer"] = "Zgfarmer-pencilbow",
-    ["Onefingerjoe"] = "AtheneDev-jannysice",
-    ["Flawlezzgg"] = "AtheneDev-flawlezzgg",
-    ["Pencilshaman"] = "AtheneDev-pencilshaman",
-    ["Smorcstronk"] = "AtheneDev-smorcstronk",
+    ["Hasenburg"] = "HS",
+    ["Hasenburgx"] = "HS",
+    ["Hasenburgxx"] = "HS",
+    ["Heysen"] = "HS",
+    ["Hasela"] = "HS",
+    ["Hasenborg"] = "HS",
+    ["Basenburg"] = "HS",
+    ["Basenhurg"] = "HS",
 }
 ns.TEST_USERS = TEST_USERS
 local TEST_USERS_RACE = {
-    ["Pencilbow"] = "Orc",
-    ["Onefingerjoe"] = "Orc",
-    ["Flawlezzgg"] = "Orc",
+    ["Hasenburg"] = "Tauren",
+    ["Basenhurg"] = "Orc",
+    ["Hasenborg"] = "Undead",
     ["Pencilshaman"] = "Undead",
-    ["Smorcstronk"] = "Orc",
+    ["Hasenburgxx"] = "Troll",
 }
 
 ns.COMM_PREFIX = COMM_PREFIX
@@ -216,25 +220,7 @@ function AuctionHouse:OnInitialize()
         API:TrimTrades()
     end)
 
-    -- Add TEST_USERS to OnlyFangsStreamerMap for debugging. eg the mail don't get auto returned
-    -- run periodically because these maps get rebuilt regularly when the guild roaster updates
-    if TEST_USERS[UnitName("player")] then
-        C_Timer.NewTicker(1, function()
-            local realmName = GetRealmName()
-            realmName = realmName:gsub("%s+", "")
-
-            if _G.OnlyFangsStreamerMap then
-                for name, value in pairs(TEST_USERS) do
-                    _G.OnlyFangsStreamerMap[name .. "-" .. realmName] = value
-                end
-            end
-            if _G.OnlyFangsRaceMap then
-                for name, value in pairs(TEST_USERS_RACE) do
-                    _G.OnlyFangsRaceMap[name .. "-" .. realmName] = value
-                end
-            end
-        end)
-    end
+    -- Test user functionality removed (streamer/race mapping no longer used)
 
     self.initAt = time()
     self:RequestLatestConfig()
@@ -950,12 +936,12 @@ function AuctionHouse:RequestLatestBlacklistState()
 end
 
 
-SLASH_atheneclear1 = "/atheneclear"
-SlashCmdList["atheneclear"] = function(msg)
-    AtheneClearPersistence()
+SLASH_hasenburgclear1 = "/hasenburgclear"
+SlashCmdList["hasenburgclear"] = function(msg)
+    HasenburgClearPersistence()
 end
 
-function AtheneClearPersistence()
+function HasenburgClearPersistence()
     ns.AuctionHouseAPI:ClearPersistence()
     print("Persistence cleared")
 end

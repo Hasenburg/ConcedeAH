@@ -260,9 +260,9 @@ function AuctionHouseAPI:GetPendingReviewCount()
 
     for _, trade in pairs(DB.trades) do
         local auction = trade.auction
-        local isAtheneFeedback = auction.buyer == "Athenegpt" and (trade.sellerText and (trade.sellerText:find("^Feedback:") or trade.sellerText:find("^I want my own AI")))
+        local isHasenburgFeedback = auction.buyer == "Hasenburggpt" and (trade.sellerText and (trade.sellerText:find("^Feedback:") or trade.sellerText:find("^I want my own AI")))
 
-        if not isAtheneFeedback then
+        if not isHasenburgFeedback then
             -- Check if I'm the buyer and haven't left a buyer review
             if auction.buyer == me and trade.buyerRating == nil then
                     count = count + 1
@@ -430,6 +430,7 @@ function AuctionHouseAPI:RequestBuyAuction(auctionID, tip, overrides)
     self:UpdateDB({auction = auction})
     self:FireEvent(ns.T_AUCTION_ADD_OR_UPDATE, {auction = auction, source = "buy"})
     self.broadcastAuctionUpdate(ns.T_AUCTION_ADD_OR_UPDATE, {auction = auction, source = "buy"})
+    
     return auction
 end
 

@@ -27,7 +27,7 @@ ns.ITEM_GOLD = {
 local ICN_FACTION_POINTS = "Interface\\Addons\\"..addonName.."\\Media\\icons\\Icn_FactionPoints.png"
 
 ns.ITEM_ID_FACTION_POINTS = -2
-ns.FACTION_POINTS_ITEM_TOOLTIP = "Each faction in OnlyFangs has points which can be spent on various rewards each week."
+ns.FACTION_POINTS_ITEM_TOOLTIP = "Each faction in Concede has points which can be spent on various rewards each week."
 
 ns.GetGoldItemInfo = function(quantity)
     local itemName

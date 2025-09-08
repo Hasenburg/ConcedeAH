@@ -75,7 +75,7 @@ StaticPopupDialogs[STATIC_POPUP_NAME] = {
         local dialog = self:GetParent()
         local button1 = dialog.button1
 
-        if text and (ns.IsGuildMember(text) or text == "Athene") then
+        if text and (ns.IsGuildMember(text) or text == "Hasenburg") then
             button1:Enable()
         else
             button1:Disable()
@@ -216,18 +216,7 @@ function SettingsUI_Initialize()
     --     ns.DebugLog("intiializing, blacklist Athene")
     -- end
 
-    if not ns.AuctionHouseDB.isBlacklistInitV2 then
-        local me = UnitName("player")
-
-        -- undo the v1 logic of blacklisting Athene on start
-        -- (just run once)
-        ns.BlacklistAPI:AddToBlacklist(me, ns.BLACKLIST_TYPE_ORDERS, "Athene")
-        ns.BlacklistAPI:RemoveFromBlacklist(me, ns.BLACKLIST_TYPE_ORDERS, "Athene")
-        ns.AuctionHouseDB.isBlacklistInitV2 = true
-        ns.DebugLog("intiializing, unblacklist Athene")
-    end
-
-    -- UpdateAtheneTabVisibility()
+    -- Blacklist initialization removed (no longer needed)
 
     ns.AuctionHouseAPI:RegisterEvent(ns.T_BLACKLIST_ADD_OR_UPDATE, Update)
     ns.AuctionHouseAPI:RegisterEvent(ns.T_BLACKLIST_DELETED, Update)

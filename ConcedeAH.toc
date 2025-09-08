@@ -2,7 +2,7 @@
 ## Version: 1.1.6
 ## Title: ConcedeAH
 ## Notes: Guild Auction House for |cFFFF0000Concede|r
-## Author: Athene
+## Author: Hasenburg
 ## SavedVariables: AuctionHouseDBSaved, AHConfigSaved, PlayerPrefsSaved
 
 dependencies.xml

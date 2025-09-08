@@ -51,7 +51,7 @@ ns.ChangeLog = {
     },
 
     -- ["1.0.7-14"] = {
-    --     "Hide Athene top-left portrait in the Auction House",
+    --     "Hide Hasenburg top-left portrait in the Auction House",
     --     "Sound effect when declaring bankruptcy",
     --     "Update reel youtube url",
     --     "Various bugfixes related to duels"
@@ -61,7 +61,7 @@ ns.ChangeLog = {
     --     "Updated icon"
     -- },
     -- ["1.0.7-12"] = {
-    --     "AddBlock option to get rid of the Athene tab"
+    --     "AddBlock option to get rid of the Hasenburg tab"
     -- },
     ["1.0.7-11"] = {
         "Fix: show average viewers in Stream Together",
@@ -74,8 +74,8 @@ ns.ChangeLog = {
     },
     ["1.0.7-9"] = {
         "Auctions now expire after 14 days instead of 3 days",
-        "Blacklisting Athene now hides the Athene tab",
-        "Automatically blacklists Athene when you first install the addon",
+        "Blacklisting Hasenburg now hides the Hasenburg tab",
+        "Automatically blacklists Hasenburg when you first install the addon",
         "Fix: remove auctions after gkick",
         "Fix: various layout/visual glitches"
     },

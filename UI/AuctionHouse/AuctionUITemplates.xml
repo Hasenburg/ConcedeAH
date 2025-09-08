@@ -503,6 +503,15 @@
 	</Button>
     <!-- OFBidButtonTemplate now inherits from OFBrowseButtonTemplate for consistency -->
     <Button name="OFBidButtonTemplate" inherits="OFBrowseButtonTemplate" virtual="true">
+        <Scripts>
+            <OnClick>
+                if ( IsModifiedClick() ) then
+                    OFAuctionFrameItem_OnClickModified(self, "bidder", self:GetID() + FauxScrollFrame_GetOffset(OFBidScrollFrame));
+                else
+                    OFBidButton_OnClick(self);
+                end
+            </OnClick>
+        </Scripts>
     </Button>
 	<Button name="OFAuctionsButtonTemplate" virtual="true">
 		<Size>

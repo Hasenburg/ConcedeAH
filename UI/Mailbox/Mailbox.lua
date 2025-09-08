@@ -90,7 +90,7 @@ function MailboxUI:CreateMailboxUI()
 
     -- Create a container frame (AceGUI Frame)
     local frame = AceGUI:Create("Frame")
-    frame:SetTitle("OnlyFangs AH")
+    frame:SetTitle("ConcedeAH")
     frame:SetStatusText("")
     frame:SetLayout("Flow")
     frame:EnableResize(false)
@@ -185,7 +185,7 @@ function MailboxUI:CreateMailboxUI()
         header.content:SetPoint("TOPLEFT", 6, 0)
         header.content:SetPoint("BOTTOMRIGHT", 10, 0)
 
-        -- Owner name and rating container
+        -- Owner name container (removed rating and reviews)
         local ownerContainer = AceGUI:Create("SimpleGroup")
         ownerContainer:SetLayout("Flow")
         ownerContainer:SetFullWidth(true)
@@ -193,28 +193,8 @@ function MailboxUI:CreateMailboxUI()
         local username = AceGUI:Create("Label")
         username:SetText("Loading...")
         username:SetFontObject(GameFontNormalSmall)
-        username:SetWidth(180)
+        username:SetWidth(250)
         ownerContainer:AddChild(username)
-
-        local starRating = ns.CreateStarRatingWidget({
-            starSize = 9,
-            panelHeight = 9,
-            marginBetweenStarsX = 2,
-            textWidth = 22,
-            leftMargin = 1,
-        })
-        ownerContainer:AddChild(starRating)
-
-        local space = AceGUI:Create("Label")
-        space:SetWidth(16)
-        ownerContainer:AddChild(space)
-
-        local reviewsLabel = AceGUI:Create("Label")
-        reviewsLabel:SetText("999 reviews")  -- Placeholder reviews count
-        reviewsLabel:SetFontObject(GameFontNormalSmall)
-        reviewsLabel:SetColor(0.5, 0.5, 0.5)  -- Gray color
-        reviewsLabel:SetWidth(60)
-        ownerContainer:AddChild(reviewsLabel)
 
         header:AddChild(ownerContainer)
         orderGroup:AddChild(header)
@@ -340,8 +320,6 @@ function MailboxUI:CreateMailboxUI()
 
         -- Store additional references for updating
         orderGroup.username = username
-        orderGroup.reviewsLabel = reviewsLabel
-        orderGroup.starRating = starRating
 
         -- Add decline button in top-right corner
         local declineButton = CreateFrame("Button", nil, orderGroup.content, "UIPanelCloseButton")
@@ -501,7 +479,6 @@ function MailboxUI:UpdateSlot(slotIndex, auction)
     -- Check if player has enough items
     local playerItemCount = ns.GetItemCount(auction.itemID)
     local hasEnoughItems = playerItemCount >= auction.quantity
-    local ratingAvg, ratingCount = ns.AuctionHouseAPI:GetAverageRatingForUser(auction.buyer)
 
     -- Disable accept button if not enough items
     slot.acceptButton:SetDisabled(not hasEnoughItems)
@@ -509,10 +486,10 @@ function MailboxUI:UpdateSlot(slotIndex, auction)
     -- Update accept button text based on auction type
     slot.acceptButton:SetText(auction.status == ns.AUCTION_STATUS_PENDING_LOAN and "Loan" or "Accept")
 
-    -- Update owner info
-    slot.username:SetText(ns.GetDisplayName(auction.buyer) or "Unknown")
-    slot.starRating:SetRating(ratingAvg)
-    slot.reviewsLabel:SetText(string.format("%d reviews", ratingCount))
+    -- Update owner info with class coloring
+    local buyerName = auction.buyer or "Unknown"
+    local displayName = ns.GetDisplayName(buyerName) or buyerName
+    slot.username:SetText(displayName)
 
     slot:ShowSlot()
     slot.auctionId = auction.id

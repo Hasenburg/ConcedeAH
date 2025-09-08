@@ -12,9 +12,30 @@
 						<Anchor point="TOP" x="0" y="-18"/>
 					</Anchors>
 				</FontString>
+				<FontString name="OFMarketplaceHideMyOffersLabel" inherits="GameFontNormal" text="Hide My Offers">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="30" y="-45"/>
+					</Anchors>
+				</FontString>
 			</Layer>
 		</Layers>
 		<Frames>
+			<!-- Hide My Offers Checkbox -->
+			<CheckButton name="OFMarketplaceHideMyOffersCheckbox">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="140" y="-43"/>
+				</Anchors>
+				<NormalTexture file="Interface\Buttons\UI-CheckBox-Up"/>
+				<PushedTexture file="Interface\Buttons\UI-CheckBox-Down"/>
+				<HighlightTexture file="Interface\Buttons\UI-CheckBox-Highlight" alphaMode="ADD"/>
+				<CheckedTexture file="Interface\Buttons\UI-CheckBox-Check"/>
+				<Scripts>
+					<OnClick>
+						OFMarketplace_ToggleHideMyOffers()
+					</OnClick>
+				</Scripts>
+			</CheckButton>
 			<ScrollFrame name="OFMarketplaceScrollFrame" inherits="FauxScrollFrameTemplate">
 				<Size x="550" y="280"/>
 				<Anchors>
@@ -31,6 +52,7 @@
 		<Scripts>
 			<OnLoad function="OFAuctionFrameMarketplace_OnLoad"/>
 			<OnShow function="OFAuctionFrameMarketplace_OnShow"/>
+			<OnHide function="OFAuctionFrameMarketplace_OnHide"/>
 		</Scripts>
 	</Frame>
 

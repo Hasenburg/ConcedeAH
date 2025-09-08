@@ -13,7 +13,7 @@ function OFAuctionFrameOpen_OnLoad(self)
 end
 
 function OFAuctionFrameOpen_OnShow(self)
-    OFOpenTitle:SetText("OnlyFangs AH - Open Orders")
+    OFOpenTitle:SetText("ConcedeAH - Open Orders")
     OFAuctionFrameOpen_Update()
 end
 

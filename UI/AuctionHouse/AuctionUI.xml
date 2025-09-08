@@ -695,6 +695,30 @@
 							</OnEnterPressed>
 						</Scripts>
 					</EditBox>
+                    <!-- Hide My Offers checkbox for Marketplace tab -->
+                    <CheckButton name="OFMarketplaceHideMyOffersCheckbox" inherits="UICheckButtonTemplate" hidden="true">
+                        <Size>
+                            <AbsDimension x="24" y="24"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="LEFT" relativeTo="OFBrowseName" relativePoint="RIGHT" x="10" y="0"/>
+                        </Anchors>
+                        <Scripts>
+                            <OnLoad>
+                                self.text = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                                self.text:SetPoint("LEFT", self, "RIGHT", 2, 0)
+                                self.text:SetText("Hide My Offers")
+                            </OnLoad>
+                            <OnClick>
+                                if OFAuctionFrameBrowse then
+                                    OFAuctionFrameBrowse.hideMyOffers = self:GetChecked()
+                                    browseResultCache = nil
+                                    OFAuctionFrameBrowse_Update()
+                                end
+                                PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+                            </OnClick>
+                        </Scripts>
+                    </CheckButton>
                     <!-- Online Only and Auctions Only checkboxes removed -->
                     <CheckButton name="OFOnlineOnlyCheckButton" inherits="UICheckButtonTemplate" hidden="true">
                         <Size>
@@ -904,9 +928,9 @@
 					</Layer>
 				</Layers>
 				<Frames>
-					<Button name="OFBidQualitySort" inherits="OFAuctionSortButtonTemplate" text="RARITY">
+					<Button name="OFBidQualitySort" inherits="OFAuctionSortButtonTemplate" text="Item">
 						<Size>
-							<AbsDimension x="175" y="19" />
+							<AbsDimension x="330" y="19" />
 						</Size>
 						<Anchors>
 							<Anchor point="TOPLEFT">
@@ -921,23 +945,13 @@
 							</OnClick>
 						</Scripts>
 					</Button>
-                    <Button name="OFBidTypeSort" inherits="OFAuctionSortButtonTemplate" text="Type">
-                        <Size x="60" y="19" />
-                        <Anchors>
-                            <Anchor x="-2" point="LEFT" relativeTo="OFBidQualitySort" relativePoint="RIGHT" />
-                        </Anchors>
-                        <Scripts>
-                            <OnClick>
-                                OFAuctionFrame_OnClickSortColumn("bidder", "type")
-                            </OnClick>
-                        </Scripts>
-                    </Button>
-				   <Button name="OFBidBuyerName" inherits="OFAuctionSortButtonTemplate" text="Buyer/Seller">
+                    <!-- Type column removed -->
+				   <Button name="OFBidBuyerSort" inherits="OFAuctionSortButtonTemplate" text="Buyer">
                         <Size>
-                            <AbsDimension x="164" y="19" />
+                            <AbsDimension x="110" y="19" />
                         </Size>
                         <Anchors>
-                            <Anchor point="LEFT" relativeTo="OFBidTypeSort" relativePoint="RIGHT">
+                            <Anchor point="LEFT" relativeTo="OFBidQualitySort" relativePoint="RIGHT">
                                 <Offset>
                                     <AbsDimension x="-2" y="0" />
                                 </Offset>
@@ -949,12 +963,12 @@
                             </OnClick>
                         </Scripts>
                     </Button>
-                    <Button name="OFBidRatingSort" inherits="OFAuctionSortButtonTemplate" text="Rating">
+                    <Button name="OFBidSellerSort" inherits="OFAuctionSortButtonTemplate" text="Seller">
                         <Size>
-                            <AbsDimension x="60" y="19" />
+                            <AbsDimension x="110" y="19" />
                         </Size>
                         <Anchors>
-                            <Anchor point="LEFT" relativeTo="OFBidBuyerName" relativePoint="RIGHT">
+                            <Anchor point="LEFT" relativeTo="OFBidBuyerSort" relativePoint="RIGHT">
                                 <Offset>
                                     <AbsDimension x="-2" y="0" />
                                 </Offset>
@@ -962,16 +976,17 @@
                         </Anchors>
                         <Scripts>
                             <OnClick>
-                                OFAuctionFrame_OnClickSortColumn("bidder", "rating")
+                                OFAuctionFrame_OnClickSortColumn("bidder", "seller")
                             </OnClick>
                         </Scripts>
                     </Button>
-                    <Button name="OFBidDeliverySort" inherits="OFAuctionSortButtonTemplate" text="Misc">
+                    <!-- Rating column removed -->
+                    <Button name="OFBidDateSort" inherits="OFAuctionSortButtonTemplate" text="Bought on">
                         <Size>
-                            <AbsDimension x="80" y="19" />
+                            <AbsDimension x="100" y="19" />
                         </Size>
                         <Anchors>
-                            <Anchor point="LEFT" relativeTo="OFBidRatingSort" relativePoint="RIGHT">
+                            <Anchor point="LEFT" relativeTo="OFBidSellerSort" relativePoint="RIGHT">
                                 <Offset>
                                     <AbsDimension x="-2" y="0" />
                                 </Offset>
@@ -979,33 +994,17 @@
                         </Anchors>
                         <Scripts>
                             <OnClick>
-                                OFAuctionFrame_OnClickSortColumn("bidder", "delivery")
+                                OFAuctionFrame_OnClickSortColumn("bidder", "date")
                             </OnClick>
                         </Scripts>
                     </Button>
-                    <Button name="OFBidStatusSort" inherits="OFAuctionSortButtonTemplate" text="Status">
-						<Size>
-							<AbsDimension x="103" y="19" />
-						</Size>
-						<Anchors>
-                            <Anchor point="LEFT" relativeTo="OFBidDeliverySort" relativePoint="RIGHT">
-                                <Offset>
-                                    <AbsDimension x="-2" y="0" />
-                                </Offset>
-                            </Anchor>
-						</Anchors>
-						<Scripts>
-							<OnClick>
-								OFAuctionFrame_OnClickSortColumn("bidder", "status")
-							</OnClick>
-						</Scripts>
-					</Button>
+                    <!-- Status column removed -->
                     <Button name="OFBidBidSort" inherits="OFAuctionSortButtonTemplate" text="Price">
                         <Size>
-                            <AbsDimension x="126" y="19" />
+                            <AbsDimension x="111" y="19" />
                         </Size>
                         <Anchors>
-                            <Anchor point="LEFT" relativeTo="OFBidStatusSort" relativePoint="RIGHT">
+                            <Anchor point="LEFT" relativeTo="OFBidDateSort" relativePoint="RIGHT">
                                 <Offset>
                                     <AbsDimension x="-2" y="0" />
                                 </Offset>
@@ -1145,62 +1144,14 @@
 							</Anchor>
 						</Anchors>
 					</Button>
-					<Button name="OFBidInviteButton" inherits="UIPanelButtonTemplate" text="INVITE">
-						<Size>
-							<AbsDimension x="80" y="22" />
-						</Size>
-						<Anchors>
-							<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT">
-								<Offset>
-									<AbsDimension x="66" y="14" />
-								</Offset>
-							</Anchor>
-						</Anchors>
-						<Layers>
-							<Layer level="BORDER">
-								<Texture file="Interface\FrameGeneral\UI-Frame">
-									<Size x="13" y="25" />
-									<Anchors>
-										<Anchor x="5" y="1" point="TOPRIGHT" relativePoint="TOPLEFT" />
-									</Anchors>
-									<TexCoords left="0.0078125" right="0.109375" top="0.7578125" bottom="0.953125" />
-								</Texture>
-							</Layer>
-						</Layers>
-						<Scripts>
-							<OnClick function="OFBidInviteButton_OnClick" />
-						</Scripts>
-					</Button>
-                    <Button name="OFBidWhisperButton" inherits="UIPanelButtonTemplate" text="WHISPER">
-                        <Size>
-                            <AbsDimension x="80" y="22" />
-                        </Size>
-                        <Anchors>
-                            <Anchor point="RIGHT" relativeTo="OFBidInviteButton" relativePoint="LEFT" />
-                        </Anchors>
-                        <Layers>
-                            <Layer level="BORDER">
-                                <Texture file="Interface\FrameGeneral\UI-Frame">
-                                    <Size x="13" y="25" />
-                                    <Anchors>
-                                        <Anchor x="5" y="1" point="TOPRIGHT" relativePoint="TOPLEFT" />
-                                    </Anchors>
-                                    <TexCoords left="0.0078125" right="0.109375" top="0.7578125" bottom="0.953125" />
-                                </Texture>
-                            </Layer>
-                        </Layers>
-                        <Scripts>
-                            <OnClick function="OFBidWhisperButton_OnClick"/>
-                        </Scripts>
-                    </Button>
 					<Button name="OFBidCancelAuctionButton" inherits="UIPanelButtonTemplate" text="CANCEL_AUCTION">
 						<Size>
                             <AbsDimension x="126" y="22" />
 						</Size>
 						<Anchors>
-							<Anchor point="RIGHT" relativeTo="OFBidWhisperButton" relativePoint="LEFT">
+							<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT">
 								<Offset>
-									<AbsDimension x="0" y="0" />
+									<AbsDimension x="69" y="14" />
 								</Offset>
 							</Anchor>
 						</Anchors>
@@ -1222,14 +1173,14 @@
 							</OnClick>
 						</Scripts>
 					</Button>
-                    <Button name="OFBidForgiveLoanButton" inherits="UIPanelButtonTemplate" text="Mark Loan Complete">
+                    <Button name="OFBidForgiveLoanButton" inherits="UIPanelButtonTemplate" text="Mark as Completed">
                         <Size>
-                            <AbsDimension x="165" y="22" />
+                            <AbsDimension x="140" y="22" />
                         </Size>
                         <Anchors>
                             <Anchor point="RIGHT" relativeTo="OFBidCancelAuctionButton" relativePoint="LEFT">
                                 <Offset>
-                                    <AbsDimension x="0" y="0" />
+                                    <AbsDimension x="-5" y="0" />
                                 </Offset>
                             </Anchor>
                         </Anchors>

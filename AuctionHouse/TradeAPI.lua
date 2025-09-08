@@ -326,13 +326,25 @@ function TradeAPI:PrefillItem(itemID, quantity, targetName)
     -- I'm the owner: prefill trade with the item
     -- Use new helper function to find the item
     local bag, slot, exactMatch = self:FindBestMatchForTrade(itemID, quantity)
-    if slot and exactMatch then
-        -- select item
+    
+    if not slot then
+        -- Item not found in bags at all
+        local itemName = select(2, ns.GetItemInfo(itemID)) or "item"
+        print(ChatPrefixError() .. " Item not found: " .. quantity .. "x " .. itemName .. " is not in your bags!")
+        return
+    end
+    
+    local itemInfo = C_Container.GetContainerItemInfo(bag, slot)
+    local stackCount = itemInfo and itemInfo.stackCount or 0
+    
+    ns.DebugLog("[DEBUG] PrefillItem: Found stack of", stackCount, "need", quantity, "exactMatch:", exactMatch)
+    
+    if exactMatch then
+        -- Exact match found, pick it up and place in trade
         C_Container.PickupContainerItem(bag, slot)
-
-        -- place it into the first trade slot
         ClickTradeButton(1)
-        -- success message
+        
+        -- Success message
         local name, itemLink = ns.GetItemInfo(itemID, quantity)
         local itemDescription
         if itemID == ns.ITEM_ID_GOLD then
@@ -341,26 +353,35 @@ function TradeAPI:PrefillItem(itemID, quantity, targetName)
             itemLink = itemLink or "item"
             itemDescription = quantity .. "x " .. itemLink
         end
-        print(ChatPrefix() .. " Auto-filled trade with " ..
-                itemDescription .. " for auction to " .. targetName)
+        print(ChatPrefix() .. " Auto-filled trade with " .. itemDescription .. " for auction to " .. targetName)
     else
-        -- error message when item not found or quantity doesn't match exactly
+        -- No exact match - show error message
         local itemName = select(2, ns.GetItemInfo(itemID)) or "item"
-        local errorMsg = not slot and
-            " Could not find " .. quantity .. "x " .. itemName .. " in your bags for the trade"
-            or
-            " Found the item but stack size doesn't match exactly. Please manually split a stack of " .. quantity .. " " .. itemName
-        print(ChatPrefixError() .. errorMsg)
+        
+        if stackCount > quantity then
+            -- Stack is larger than needed
+            print(ChatPrefixError() .. " Wrong stack size: You have a stack of " .. stackCount .. 
+                  " but need exactly " .. quantity .. "x " .. itemName .. 
+                  ". Please split the stack manually to " .. quantity .. " items.")
+        elseif stackCount < quantity then
+            -- Stack is smaller than needed (shouldn't happen with our search logic)
+            print(ChatPrefixError() .. " Not enough items: You have " .. stackCount .. 
+                  " but need " .. quantity .. "x " .. itemName .. ".")
+        end
     end
 end
 
 function TradeAPI:TryPrefillTradeWindow(targetName)
+    ns.DebugLog("[DEBUG] TryPrefillTradeWindow called with targetName:", targetName)
+    
     if not targetName or targetName == "" then
+        ns.DebugLog("[DEBUG] No target name, returning")
         return
     end
 
     local me = UnitName("player")
     if me == targetName then
+        ns.DebugLog("[DEBUG] Trading with self, returning")
         return
     end
 
@@ -369,6 +390,17 @@ function TradeAPI:TryPrefillTradeWindow(targetName)
     -- 1. Gather potential auctions where I'm the seller or the buyer and the status is pending trade
     local myPendingAsSeller = AuctionHouseAPI:GetAuctionsWithOwnerAndStatus(me, { ns.AUCTION_STATUS_PENDING_TRADE, ns.AUCTION_STATUS_PENDING_LOAN })
     local myPendingAsBuyer  = AuctionHouseAPI:GetAuctionsWithBuyerAndStatus(me, { ns.AUCTION_STATUS_PENDING_TRADE, ns.AUCTION_STATUS_PENDING_LOAN })
+    
+    ns.DebugLog("[DEBUG] Found", #myPendingAsSeller, "auctions where I'm seller")
+    ns.DebugLog("[DEBUG] Found", #myPendingAsBuyer, "auctions where I'm buyer")
+    
+    -- Debug: Show details of auctions
+    for _, auction in ipairs(myPendingAsSeller) do
+        ns.DebugLog("[DEBUG] Seller auction: ID =", auction.id, "Status =", auction.status, "Buyer =", auction.buyer)
+    end
+    for _, auction in ipairs(myPendingAsBuyer) do
+        ns.DebugLog("[DEBUG] Buyer auction: ID =", auction.id, "Status =", auction.status, "Owner =", auction.owner)
+    end
 
     local function filterAuctions(auctions)
         local filtered = {}
@@ -393,12 +425,15 @@ function TradeAPI:TryPrefillTradeWindow(targetName)
 
     if not relevantAuction then
         -- No matching auction
+        ns.DebugLog("[DEBUG] No matching auction found for", targetName)
         return
     end
 
     local itemID = relevantAuction.itemID
     local quantity = relevantAuction.quantity or 1
     local totalPrice = (relevantAuction.price or 0) + (relevantAuction.tip or 0)
+    
+    ns.DebugLog("[DEBUG] Found auction: itemID =", itemID, "quantity =", quantity, "isSeller =", isSeller)
 
     if ns.IsUnsupportedFakeItem(itemID) then
         print(ChatPrefix() .. " Unknown Item when trading with " .. targetName .. ". Update to the latest version to trade this item")
@@ -408,13 +443,16 @@ function TradeAPI:TryPrefillTradeWindow(targetName)
     if isSeller then
         if itemID == ns.ITEM_ID_GOLD then
             -- NOTE: here, quantity is the amount of copper
+            ns.DebugLog("[DEBUG] Calling PrefillGold (as seller)")
             self:PrefillGold(relevantAuction, quantity, targetName)
         else
+            ns.DebugLog("[DEBUG] Calling PrefillItem with quantity:", quantity)
             self:PrefillItem(itemID, quantity, targetName)
         end
     else
         -- NOTE: for ITEM_ID_GOLD totalPrice is expected to be 0
         -- But maybe we'll support for tips or other weirdness later on, so just handle what's on the auction
+        ns.DebugLog("[DEBUG] Calling PrefillGold (as buyer)")
         self:PrefillGold(relevantAuction, totalPrice, targetName)
     end
 end

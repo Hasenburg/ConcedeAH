@@ -17,7 +17,7 @@ function OFAuctionFramePending_OnLoad(self)
 end
 
 function OFAuctionFramePending_OnShow(self)
-    OFPendingTitle:SetText("OnlyFangs AH - Pending Fulfillment")
+    OFPendingTitle:SetText("ConcedeAH - Pending Fulfillment")
     OFAuctionFramePending_Update()
 end
 
@@ -190,7 +190,7 @@ function OFPendingSendMailButton_OnClick()
     end
     
     SendMailNameEditBox:SetText(item.buyer)
-    SendMailSubjectEditBox:SetText("OnlyFangs AH: " .. (item.itemName or "Your item"))
+    SendMailSubjectEditBox:SetText("ConcedeAH: " .. (item.itemName or "Your item"))
     
     -- Auto-attach the item if possible
     -- This would require finding the item in bags and attaching it

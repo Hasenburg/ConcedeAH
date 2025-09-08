@@ -1,6 +1,6 @@
 local _, ns = ...
 
-local _SCANNER = "Athene_ScannerTooltip"
+local _SCANNER = "Hasenburg_ScannerTooltip"
 local Scanner = _G[_SCANNER] or CreateFrame("GameTooltip", _SCANNER, UIParent, "GameTooltipTemplate")
 
 local GetContainerNumSlots = C_Container and _G.C_Container.GetContainerNumSlots or _G.GetContainerNumSlots
@@ -54,46 +54,16 @@ end
 
 
 ns.IsGuildMember = function(name)
-    if not _G.OnlyFangsStreamerMap then
-        -- fallback to checking for online members, shouldn't happen on prod
-        local data = ns.GuildRegister:GetMemberData(name)
-        if data then
-            return true
-        end
-        return false
-    end
-
-    local fullCharName = name .. REALM_NAME_SUFFIX
-    local ofTwitchName = _G.OnlyFangsStreamerMap[fullCharName]
-    if ofTwitchName then
+    -- Check for online guild members
+    local data = ns.GuildRegister:GetMemberData(name)
+    if data then
         return true
     end
     return false
 end
 
 ns.GetTwitchName = function(owner)
-    if not owner then
-        return ""
-    end
-
-    -- for testing
-    if owner == "Onefingerjoe" then
-        return "jannysice"
-    elseif owner == "Smorcstronk" then
-        return "kratosstronk"
-    elseif owner == "Pencilbow" then
-        return "pencilbow9"
-    elseif owner == "Flawlezzgg" then
-        return "Flawlezz"
-    end
-
-    if _G.OnlyFangsStreamerMap then
-        local fullCharName = owner .. REALM_NAME_SUFFIX
-        local ofTwitchName = _G.OnlyFangsStreamerMap[fullCharName]
-        if ofTwitchName then
-            return ofTwitchName
-        end
-    end
+    -- Twitch name functionality removed
     return nil
 end
 
@@ -128,7 +98,8 @@ ns.GetDisplayName = function (name, racePosition, maxCharacters)
 end
 
 ns.GetUserRace = function(owner)
-    return _G.OnlyFangsRaceMap and _G.OnlyFangsRaceMap[owner .. REALM_NAME_SUFFIX]
+    -- Race mapping functionality removed
+    return nil
 end
 
 -- Converts a price in copper to gold, silver, and copper components
@@ -210,12 +181,29 @@ function PrefillAuctionMail(totalCopper, quantity, itemID, recipient, note)
             end
         end
 
-        if not exactMatch then
-            return false, string.format("Please manually split stacks to get exactly %d items.", quantity)
+        if exactMatch then
+            -- Use the exact match
+            C_Container.PickupContainerItem(exactMatch.bag, exactMatch.slot)
+        else
+            -- No exact match found - provide helpful error message
+            local itemName = ns.GetItemInfo(itemID) or "items"
+            local stackInfo = ""
+            
+            -- Find what stacks the user has
+            for _, loc in ipairs(locations) do
+                if stackInfo ~= "" then
+                    stackInfo = stackInfo .. ", "
+                end
+                stackInfo = stackInfo .. loc.count
+            end
+            
+            if stackInfo ~= "" then
+                return false, string.format("Wrong stack size: You have stacks of (%s) but need exactly %d %s. Please split a stack manually to %d items.", 
+                                          stackInfo, quantity, itemName, quantity)
+            else
+                return false, string.format("Item not found: %d %s not in your bags.", quantity, itemName)
+            end
         end
-
-        -- Now proceed with adding items to mail
-        C_Container.PickupContainerItem(exactMatch.bag, exactMatch.slot)
     end
     ClickSendMailItemButton()
 
@@ -473,7 +461,8 @@ ns.GetMyPendingAuctions = function(sortParams)
         function(item) return item.owner == playerName or item.buyer == playerName end,
         function(item) return item.status ~= ns.AUCTION_STATUS_ACTIVE and item.status ~= ns.AUCTION_STATUS_COMPLETED end
     })
-    return queryAndSort(filter, sortParams)
+    local results = queryAndSort(filter, sortParams)
+    return results
 end
 
 ns.GetMyAuctions = function()

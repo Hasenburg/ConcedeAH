@@ -6,6 +6,8 @@ function OFAuctionFrameMarketplace_OnLoad(self)
     self.page = 0
     self.isSearch = nil
     self.canQuery = 1
+    self.searchText = ""
+    self.hideMyOffers = false
     
     -- Set up sort parameters
     currentSortParams = currentSortParams or {}
@@ -20,49 +22,137 @@ function OFAuctionFrameMarketplace_OnShow(self)
     -- Update title
     OFMarketplaceTitle:SetText("ConcedeAH - Marketplace")
     
+    -- Show the Hide My Offers checkbox
+    if OFMarketplaceHideMyOffersCheckbox then
+        OFMarketplaceHideMyOffersCheckbox:Show()
+        OFMarketplaceHideMyOffersCheckbox:SetChecked(self.hideMyOffers or false)
+    end
+    if OFMarketplaceHideMyOffersLabel then
+        OFMarketplaceHideMyOffersLabel:Show()
+    end
+    
+    -- Make sure search box is visible and functional
+    if OFBrowseName then
+        OFBrowseName:Show()
+        -- Hook the text changed event if not already done
+        if not self.searchHooked then
+            OFBrowseName:HookScript("OnTextChanged", function()
+                OFMarketplace_Search()
+            end)
+            self.searchHooked = true
+        end
+        -- Get current search text
+        OFMarketplace_Search()
+    end
+    
+    -- Show the scroll frame
+    if OFBrowseScrollFrame then
+        OFBrowseScrollFrame:Show()
+    end
+    
     -- Load offers
     OFAuctionFrameMarketplace_Update()
 end
 
+function OFAuctionFrameMarketplace_OnHide(self)
+    -- Hide the checkbox when tab is hidden
+    if OFMarketplaceHideMyOffersCheckbox then
+        OFMarketplaceHideMyOffersCheckbox:Hide()
+    end
+    if OFMarketplaceHideMyOffersLabel then
+        OFMarketplaceHideMyOffersLabel:Hide()
+    end
+end
+
 function OFAuctionFrameMarketplace_Update()
-    local offset = FauxScrollFrame_GetOffset(OFMarketplaceScrollFrame) or 0
+    -- Use the main browse scroll frame
+    local offset = FauxScrollFrame_GetOffset(OFBrowseScrollFrame) or 0
     
-    -- Get all offers (not requests)
-    local offers = ns.GetAllOffers and ns.GetAllOffers() or {}
+    -- Get all offers from API
+    local allAuctions = ns.AuctionHouseAPI:GetAllAuctions() or {}
+    local offers = {}
+    local searchText = OFAuctionFrameMarketplace.searchText or ""
+    local hideMyOffers = OFAuctionFrameMarketplace.hideMyOffers or false
+    local myName = UnitName("player")
+    
+    -- Filter only offers (not requests) and apply search/hide filters
+    for _, auction in ipairs(allAuctions) do
+        if not auction.isRequest then
+            local shouldShow = true
+            
+            -- Hide my offers if checkbox is checked
+            if hideMyOffers and auction.owner == myName then
+                shouldShow = false
+            end
+            
+            -- Apply search filter
+            if shouldShow and searchText ~= "" then
+                local itemName = ""
+                if auction.itemID and auction.itemID > 0 then
+                    itemName = GetItemInfo(auction.itemID) or ""
+                elseif auction.itemName then
+                    itemName = auction.itemName
+                end
+                
+                -- Check if search text matches item name or owner
+                if not (string.find(string.lower(itemName), string.lower(searchText), 1, true) or
+                        string.find(string.lower(auction.owner or ""), string.lower(searchText), 1, true)) then
+                    shouldShow = false
+                end
+            end
+            
+            if shouldShow then
+                table.insert(offers, auction)
+            end
+        end
+    end
+    
     local numOffers = #offers
     
-    -- Update scroll frame
-    FauxScrollFrame_Update(OFMarketplaceScrollFrame, numOffers, OF_NUM_BROWSE_TO_DISPLAY, OF_AUCTIONS_BUTTON_HEIGHT)
+    -- Update scroll frame (use the main browse scroll frame)
+    FauxScrollFrame_Update(OFBrowseScrollFrame, numOffers, OF_NUM_BROWSE_TO_DISPLAY, OF_AUCTIONS_BUTTON_HEIGHT)
     
-    -- Update offer buttons
+    -- Update offer buttons (reuse OFBrowseButton elements)
     for i = 1, OF_NUM_BROWSE_TO_DISPLAY do
-        local button = _G["OFMarketplaceButton" .. i]
+        local button = _G["OFBrowseButton" .. i]
         local index = offset + i
         
-        if index <= numOffers then
+        if button and index <= numOffers then
             local offer = offers[index]
             OFMarketplace_UpdateButton(button, offer, index)
             button:Show()
-        else
+        elseif button then
             button:Hide()
         end
     end
 end
 
 function OFMarketplace_UpdateButton(button, offer, index)
+    if not button then return end
+    
     -- Update button with offer information
-    local name = _G[button:GetName() .. "Name"]
-    local texture = _G[button:GetName() .. "ItemIconTexture"]
-    local count = _G[button:GetName() .. "ItemCount"]
-    local moneyFrame = _G[button:GetName() .. "MoneyFrame"]
-    local buyoutMoneyFrame = _G[button:GetName() .. "BuyoutMoneyFrame"]
+    local buttonName = button:GetName()
+    local name = _G[buttonName .. "Name"]
+    local texture = _G[buttonName .. "ItemIconTexture"]
+    local count = _G[buttonName .. "ItemCount"]
+    local moneyFrame = _G[buttonName .. "MoneyFrame"]
+    local buyoutMoneyFrame = _G[buttonName .. "BuyoutMoneyFrame"]
     
     -- Set item info
-    if offer.itemID then
+    if offer.itemID and offer.itemID > 0 then
         local itemName, _, quality, level, _, _, _, _, _, itemTexture = GetItemInfo(offer.itemID)
         if itemName then
             name:SetText(itemName)
             texture:SetTexture(itemTexture)
+        else
+            -- Fallback to stored name if item not in cache
+            name:SetText(offer.itemName or "Unknown")
+            texture:SetTexture("Interface\Icons\INV_Misc_QuestionMark")
+        end
+    elseif offer.itemName then
+        -- Special items without itemID
+        name:SetText(offer.itemName)
+        texture:SetTexture(offer.texture or "Interface\Icons\INV_Misc_QuestionMark")
             
             -- Set quality color
             local r, g, b = GetItemQualityColor(quality or 1)
@@ -86,7 +176,7 @@ function OFMarketplace_UpdateButton(button, offer, index)
     button.offer = offer
 end
 
-function OFMarketplaceButton_OnClick(self)
+function OFMarketplace_OnButtonClick(self)
     local offer = self.offer
     if not offer then return end
     
@@ -115,10 +205,26 @@ function OFMarketplaceFulfillButton_OnClick()
 end
 
 function OFMarketplace_Search()
-    -- Implement search functionality
-    local searchText = OFMarketplaceSearchBox:GetText()
-    if searchText and searchText ~= "" then
-        -- Filter offers by search text
-        OFAuctionFrameMarketplace_Update()
+    -- Update search text from the main browse name field
+    local searchBox = _G["OFBrowseName"]
+    if searchBox then
+        local searchText = searchBox:GetText() or ""
+        -- Ignore placeholder text
+        if searchText == OF_BROWSE_SEARCH_PLACEHOLDER then
+            searchText = ""
+        end
+        OFAuctionFrameMarketplace.searchText = searchText
     end
+    OFAuctionFrameMarketplace_Update()
+end
+
+function OFMarketplace_OnSearchTextChanged(self)
+    -- Called when search text changes in OFBrowseName
+    OFMarketplace_Search()
+end
+
+function OFMarketplace_ToggleHideMyOffers()
+    -- Toggle hide my offers setting
+    OFAuctionFrameMarketplace.hideMyOffers = not OFAuctionFrameMarketplace.hideMyOffers
+    OFAuctionFrameMarketplace_Update()
 end
