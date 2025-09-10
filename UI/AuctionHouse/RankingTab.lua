@@ -5,7 +5,7 @@ local WEEK_START_HOUR = 8
 local SECONDS_IN_WEEK = 604800
 
 function OFAuctionFrameRanking_OnLoad(self)
-    self.selectedWeek = "alltime"  -- Default to All Time view
+    self.selectedWeek = "current"  -- Default to Current Week view
     self.contributors = {}
     self.weeklyData = {}
     self.allTimeData = {}
@@ -268,6 +268,12 @@ function OFAuctionFrameRanking_OnShow(self)
     OFAuctionFrameRanking_CleanTestData()
     
     OFAuctionFrameRanking_CheckWeekReset()
+    
+    -- Set frame level to be in front of other frames
+    if self.SetFrameLevel then
+        local parentLevel = self:GetParent():GetFrameLevel()
+        self:SetFrameLevel(parentLevel + 10)
+    end
     
     if OFRankingScrollFrame then
         OFRankingScrollFrame:Show()
@@ -615,26 +621,8 @@ function OFAuctionFrameRanking_UpdateSidebar()
     
     local buttonIndex = 1
     
-    -- All Time button (FIRST)
+    -- Current Week button (FIRST - now default)
     local button = sidebar.buttons[buttonIndex]
-    if button then
-        button:SetText("All Time")
-        button:SetScript("OnClick", function()
-            OFAuctionFrameRanking.selectedWeek = "alltime"
-            OFAuctionFrameRanking_UpdateList()
-            OFAuctionFrameRanking_UpdateSidebarHighlight()
-        end)
-        button:Show()
-        if OFAuctionFrameRanking.selectedWeek == "alltime" then
-            button:LockHighlight()
-        else
-            button:UnlockHighlight()
-        end
-        buttonIndex = buttonIndex + 1
-    end
-    
-    -- Current Week button (SECOND)
-    button = sidebar.buttons[buttonIndex]
     if button then
         button:SetText("Current Week")
         button:SetScript("OnClick", function()
@@ -644,6 +632,24 @@ function OFAuctionFrameRanking_UpdateSidebar()
         end)
         button:Show()
         if OFAuctionFrameRanking.selectedWeek == "current" then
+            button:LockHighlight()
+        else
+            button:UnlockHighlight()
+        end
+        buttonIndex = buttonIndex + 1
+    end
+    
+    -- All Time button (SECOND)
+    button = sidebar.buttons[buttonIndex]
+    if button then
+        button:SetText("All Time")
+        button:SetScript("OnClick", function()
+            OFAuctionFrameRanking.selectedWeek = "alltime"
+            OFAuctionFrameRanking_UpdateList()
+            OFAuctionFrameRanking_UpdateSidebarHighlight()
+        end)
+        button:Show()
+        if OFAuctionFrameRanking.selectedWeek == "alltime" then
             button:LockHighlight()
         else
             button:UnlockHighlight()

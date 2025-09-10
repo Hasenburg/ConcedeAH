@@ -66,6 +66,11 @@ local function InitializeMinimapIcon()
         return false
     end
     
+    -- Check if already registered
+    if icon:IsRegistered(addonName) then
+        return true  -- Already registered, nothing to do
+    end
+    
     -- Initialize saved variables for minimap icon position
     if not PlayerPrefsSaved then
         PlayerPrefsSaved = {}
@@ -90,8 +95,13 @@ local function InitializeMinimapIcon()
     return true
 end
 
+local iconInitialized = false
 local f = CreateFrame("Frame")
 f:SetScript("OnEvent", function(self, event, ...)
+    if iconInitialized then
+        return  -- Already initialized, don't do it again
+    end
+    
     if event == "PLAYER_LOGIN" or event == "ADDON_LOADED" then
         if event == "ADDON_LOADED" and ... ~= addonName then
             return
@@ -99,9 +109,11 @@ f:SetScript("OnEvent", function(self, event, ...)
         
         -- Try to initialize after a short delay to ensure all libraries are loaded
         C_Timer.After(0.5, function()
-            if InitializeMinimapIcon() then
+            if not iconInitialized and InitializeMinimapIcon() then
+                iconInitialized = true
                 print("ConcedeAH: Minimap button ready. Click to open AH. Use /ofah minimap to toggle visibility.")
                 self:UnregisterEvent("ADDON_LOADED")
+                self:UnregisterEvent("PLAYER_LOGIN")
             end
         end)
     end
