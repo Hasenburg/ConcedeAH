@@ -608,6 +608,19 @@ function AuctionHouseAPI:CancelAuction(auctionID)
     return true, nil
 end
 
+-- Admin delete function
+function AuctionHouseAPI:DeleteAuction(auctionID)
+    if not ns.IsAdmin or not ns.IsAdmin() then
+        return nil, "Permission denied"
+    end
+    
+    local success, error = self:DeleteAuctionInternal(auctionID, false)
+    if success then
+        print("|cFF00FF00[Admin]|r Auction " .. auctionID .. " deleted")
+    end
+    return success, error
+end
+
 -- only for use by the API internally. use CancelAuction for user requests
 function AuctionHouseAPI:DeleteAuctionInternal(auctionID, isNetworkUpdate)
     if not auctionID then
@@ -659,6 +672,26 @@ function AuctionHouseAPI:CompleteAuction(auctionID, overrides)
 
     -- create a trade to record the auction
     local trade = self:CreateTrade(auction)
+    
+    -- Award ranking points for completed trades
+    print(string.format("|cFF00FF00[Ranking Debug]|r Auction completed - Owner: %s, Buyer: %s, Type: %s", 
+        tostring(auction.owner), 
+        tostring(auction.buyer),
+        tostring(auction.auctionType)))
+    
+    if auction.auctionType == ns.AUCTION_TYPE_SELL then
+        -- Award seller point
+        if auction.owner and _G["OFAuctionFrameRanking_AddSellerPoint"] then
+            print("|cFF00FF00[Ranking Debug]|r Adding seller point for: " .. auction.owner)
+            _G["OFAuctionFrameRanking_AddSellerPoint"](auction.owner)
+        end
+        
+        -- Award buyer point
+        if auction.buyer and _G["OFAuctionFrameRanking_AddBuyerPoint"] then
+            print("|cFF00FFFF[Ranking Debug]|r Adding buyer point for: " .. auction.buyer)
+            _G["OFAuctionFrameRanking_AddBuyerPoint"](auction.buyer)
+        end
+    end
 
     -- delete immediately afterwards
     AuctionHouseAPI:DeleteAuctionInternal(auctionID)

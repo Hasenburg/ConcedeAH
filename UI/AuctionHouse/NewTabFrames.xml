@@ -50,9 +50,15 @@
 			</Button>
 		</Frames>
 		<Scripts>
-			<OnLoad function="OFAuctionFrameMarketplace_OnLoad"/>
-			<OnShow function="OFAuctionFrameMarketplace_OnShow"/>
-			<OnHide function="OFAuctionFrameMarketplace_OnHide"/>
+			<OnLoad>
+				OFAuctionFrameMarketplace_OnLoad(self)
+			</OnLoad>
+			<OnShow>
+				OFAuctionFrameMarketplace_OnShow(self)
+			</OnShow>
+			<OnHide>
+				OFAuctionFrameMarketplace_OnHide(self)
+			</OnHide>
 		</Scripts>
 	</Frame>
 

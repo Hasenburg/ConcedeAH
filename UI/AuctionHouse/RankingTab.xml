@@ -1,0 +1,162 @@
+<Ui xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\..\Blizzard_SharedXML\UI.xsd" xmlns="http://www.blizzard.com/wow/ui/">
+	<Frame name="OFAuctionFrameRanking" parent="OFAuctionFrame" hidden="true">
+		<Size x="797" y="400" />
+		<Anchors>
+			<Anchor x="20" y="-72" point="TOPLEFT" />
+		</Anchors>
+		<Layers>
+			<!-- Week reset info - top right -->
+			<Layer level="OVERLAY">
+				<FontString name="OFRankingWeekInfoText" inherits="GameFontNormalSmall" text="">
+					<Anchors>
+						<Anchor point="TOPRIGHT" x="-30" y="-5" />
+					</Anchors>
+					<Color r="1" g="1" b="0.5" />
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<!-- Title Frame - like Marketplace -->
+			<Frame name="OFRankingTitleFrame">
+				<Size x="200" y="20" />
+				<Anchors>
+					<Anchor point="TOP" x="0" y="10" />
+				</Anchors>
+				<Layers>
+					<Layer level="OVERLAY">
+						<FontString name="OFRankingTitle" inherits="GameFontNormal" text="ConcedeAH - Ranking">
+							<Anchors>
+								<Anchor point="CENTER" />
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Frame>
+			
+			<!-- Column Headers like Marketplace -->
+			<Button name="OFRankingRankSort" inherits="OFAuctionSortButtonTemplate" text="#">
+				<Size x="50" y="19" />
+				<Anchors>
+					<Anchor point="TOPLEFT" x="180" y="-15" />
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						OFRankingSort_OnClick("rank")
+					</OnClick>
+				</Scripts>
+			</Button>
+			
+			<Button name="OFRankingNameSort" inherits="OFAuctionSortButtonTemplate" text="Player">
+				<Size x="320" y="19" />
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="OFRankingRankSort" relativePoint="TOPRIGHT" x="-2" y="0" />
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						OFRankingSort_OnClick("name")
+					</OnClick>
+				</Scripts>
+			</Button>
+			
+			<Button name="OFRankingSalesSort" inherits="OFAuctionSortButtonTemplate" text="Sales">
+				<Size x="70" y="19" />
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="OFRankingNameSort" relativePoint="TOPRIGHT" x="-2" y="0" />
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						OFRankingSort_OnClick("sales")
+					</OnClick>
+				</Scripts>
+			</Button>
+			
+			<Button name="OFRankingPurchasesSort" inherits="OFAuctionSortButtonTemplate" text="Purchases">
+				<Size x="90" y="19" />
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="OFRankingSalesSort" relativePoint="TOPRIGHT" x="-2" y="0" />
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						OFRankingSort_OnClick("purchases")
+					</OnClick>
+				</Scripts>
+			</Button>
+			
+			<Button name="OFRankingTotalSort" inherits="OFAuctionSortButtonTemplate" text="Total">
+				<Size x="70" y="19" />
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="OFRankingPurchasesSort" relativePoint="TOPRIGHT" x="-2" y="0" />
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						OFRankingSort_OnClick("total")
+					</OnClick>
+				</Scripts>
+			</Button>
+			
+			<!-- Sidebar for week selection -->
+			<Frame name="OFRankingSidebar">
+				<Size x="150" y="320" />
+				<Anchors>
+					<Anchor point="TOPLEFT" x="10" y="-40" />
+				</Anchors>
+				<Layers>
+					<Layer level="BACKGROUND">
+						<Texture>
+							<Color r="0" g="0" b="0" a="0.5" />
+						</Texture>
+					</Layer>
+					<Layer level="OVERLAY">
+						<FontString name="OFRankingSidebarTitle" inherits="GameFontNormalSmall" text="Week Selection">
+							<Anchors>
+								<Anchor point="TOP" x="0" y="-8" />
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Frame>
+			
+			<!-- Main ranking display ScrollFrame -->
+			<ScrollFrame name="OFRankingScrollFrame" inherits="FauxScrollFrameTemplate">
+				<Size x="600" y="320" />
+				<Anchors>
+					<Anchor point="TOPLEFT" x="170" y="-40" />
+				</Anchors>
+				<Scripts>
+					<OnVerticalScroll>
+						FauxScrollFrame_OnVerticalScroll(self, offset, 20, OFAuctionFrameRanking_UpdateList)
+					</OnVerticalScroll>
+				</Scripts>
+			</ScrollFrame>
+		</Frames>
+		<Scripts>
+			<OnLoad>
+				OFAuctionFrameRanking_OnLoad(self)
+			</OnLoad>
+			<OnShow>
+				OFAuctionFrameRanking_OnShow(self)
+			</OnShow>
+			<OnHide>
+				OFAuctionFrameRanking_OnHide(self)
+			</OnHide>
+			<OnUpdate>
+				if OFRankingWeekInfoText then
+					local weekStart = OFRankingData and OFRankingData.weekStartTime or 0
+					if weekStart > 0 then
+						local timeLeft = weekStart + 604800 - time()
+						if timeLeft > 0 then
+							local days = math.floor(timeLeft / 86400)
+							local hours = math.floor((timeLeft % 86400) / 3600)
+							local minutes = math.floor((timeLeft % 3600) / 60)
+							OFRankingWeekInfoText:SetText(string.format("Reset: %dd %dh %dm", days, hours, minutes))
+						else
+							OFRankingWeekInfoText:SetText("Reset pending...")
+						end
+					else
+						OFRankingWeekInfoText:SetText("")
+					end
+				end
+			</OnUpdate>
+		</Scripts>
+	</Frame>
+</Ui>

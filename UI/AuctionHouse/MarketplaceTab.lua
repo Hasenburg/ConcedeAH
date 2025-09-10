@@ -153,24 +153,32 @@ function OFMarketplace_UpdateButton(button, offer, index)
         -- Special items without itemID
         name:SetText(offer.itemName)
         texture:SetTexture(offer.texture or "Interface\Icons\INV_Misc_QuestionMark")
-            
-            -- Set quality color
-            local r, g, b = GetItemQualityColor(quality or 1)
-            name:SetTextColor(r, g, b)
-            
-            -- Set count
-            if offer.quantity and offer.quantity > 1 then
-                count:SetText(offer.quantity)
-                count:Show()
-            else
-                count:Hide()
-            end
-            
-            -- Set price
-            if moneyFrame then
-                MoneyFrame_Update(moneyFrame:GetName(), offer.price or 0)
-            end
+    end
+    
+    -- Set quality color
+    local quality = 1
+    if offer.itemID and offer.itemID > 0 then
+        local _, _, itemQuality = GetItemInfo(offer.itemID)
+        quality = itemQuality or 1
+    end
+    local r, g, b = GetItemQualityColor(quality)
+    if name then
+        name:SetTextColor(r, g, b)
+    end
+    
+    -- Set count
+    if count then
+        if offer.quantity and offer.quantity > 1 then
+            count:SetText(offer.quantity)
+            count:Show()
+        else
+            count:Hide()
         end
+    end
+    
+    -- Set price
+    if moneyFrame then
+        MoneyFrame_Update(moneyFrame:GetName(), offer.price or 0)
     end
     
     button.offer = offer

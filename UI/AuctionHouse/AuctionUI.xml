@@ -83,6 +83,15 @@
                     </Anchor>
                 </Anchors>
             </Button>
+            <Button name="OFAuctionFrameTab6" inherits="OFAuctionTabTemplate" id="6" text="Ranking">
+                <Anchors>
+                    <Anchor point="TOPLEFT" relativeTo="OFAuctionFrameTab3" relativePoint="TOPRIGHT">
+                        <Offset>
+                            <AbsDimension x="-8" y="0" />
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+            </Button>
 			<Frame name="OFAuctionFrameMoneyFrame" inherits="SmallMoneyFrameTemplate">
 				<Anchors>
 					<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMLEFT">

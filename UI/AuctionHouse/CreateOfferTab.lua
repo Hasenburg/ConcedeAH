@@ -181,27 +181,67 @@ function OFCreateOfferButton_OnClick()
     local name, texture, count, quality, canUse, price, _, stackCount, totalCount, itemID = GetAuctionSellItemInfo and GetAuctionSellItemInfo()
     if not name then return end
     
+    -- Get the actual quantity from the stack fields if visible
+    local stackSize = count
+    local numStacks = 1
+    
+    if OFAuctionsStackSizeEntry and OFAuctionsStackSizeEntry:IsVisible() then
+        stackSize = tonumber(OFAuctionsStackSizeEntry:GetText()) or count
+    end
+    
+    if OFAuctionsNumStacksEntry and OFAuctionsNumStacksEntry:IsVisible() then
+        numStacks = tonumber(OFAuctionsNumStacksEntry:GetText()) or 1
+    end
+    
     local buyout = MoneyInputFrame_GetCopper(OFCreateOfferBuyoutPrice)
     local note = OFCreateOfferNote:GetText()
     if note == OF_NOTE_PLACEHOLDER then
         note = ""
     end
     
-    -- Create the offer
-    ns.CreateOffer({
-        itemID = itemID,
-        itemName = name,
-        texture = texture,
-        quantity = count,
-        price = buyout,
-        note = note,
-        priceType = OFAuctionFrameCreateOffer.priceTypeIndex,
-        deliveryType = OFAuctionFrameCreateOffer.deliveryTypeIndex
-    }, function()
-        -- Success callback
-        OFCreateOfferNote:SetText(OF_NOTE_PLACEHOLDER)
-        ClickAuctionSellItemButton(OFAuctionsItemButton, "LeftButton")
-        ClearCursor()
-        OFAuctionFrameCreateOffer_Update()
-    end)
+    -- Create multiple offers based on numStacks
+    local createdStacks = 0
+    local totalErrors = ""
+    
+    for i = 1, numStacks do
+        ns.CreateOffer({
+            itemID = itemID,
+            itemName = name,
+            texture = texture,
+            quantity = stackSize,
+            price = buyout,
+            note = note,
+            priceType = OFAuctionFrameCreateOffer.priceTypeIndex,
+            deliveryType = OFAuctionFrameCreateOffer.deliveryTypeIndex
+        }, function()
+            -- Success callback
+            createdStacks = createdStacks + 1
+            if i == numStacks then
+                -- Only clear the form after the last stack
+                OFCreateOfferNote:SetText(OF_NOTE_PLACEHOLDER)
+                ClickAuctionSellItemButton(OFAuctionsItemButton, "LeftButton")
+                ClearCursor()
+                OFAuctionFrameCreateOffer_Update()
+                
+                if createdStacks > 0 then
+                    UIErrorsFrame:AddMessage(string.format("Created %d offer(s)", createdStacks), 0.0, 1.0, 0.0, 1.0);
+                end
+            end
+        end, function(error)
+            -- Error callback
+            if totalErrors ~= "" then totalErrors = totalErrors .. "\n" end
+            totalErrors = totalErrors .. string.format("Stack %d: %s", i, error)
+            
+            if i == numStacks or error then
+                -- Show errors and clear form
+                if totalErrors ~= "" then
+                    UIErrorsFrame:AddMessage(totalErrors, 1.0, 0.1, 0.1, 1.0);
+                end
+                OFCreateOfferNote:SetText(OF_NOTE_PLACEHOLDER)
+                ClickAuctionSellItemButton(OFAuctionsItemButton, "LeftButton")
+                ClearCursor()
+                OFAuctionFrameCreateOffer_Update()
+            end
+        end)
+    end
 end

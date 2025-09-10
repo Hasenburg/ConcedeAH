@@ -1,0 +1,70 @@
+===============================================
+ConcedeAH - Alle verfügbaren Chat-Kommandos
+===============================================
+
+ALLGEMEINE KOMMANDOS (für alle Spieler)
+========================================
+
+/ah
+  Öffnet das ConcedeAH Auktionshaus-Fenster
+
+/rankingsync
+  Erzwingt eine Synchronisierung der Ranking-Daten mit anderen Spielern
+
+/rankingdebug
+  Zeigt Debug-Informationen über die aktuellen Rankings
+  - Zeigt aktuelle Woche Sales/Purchases
+  - Zeigt All-Time Sales/Purchases
+  - Zeigt Wochenstartzeit
+
+/rankingupdate
+  Erzwingt eine Aktualisierung der Ranking-Anzeige
+  - Öffnet das Ranking-Tab falls es geschlossen ist
+  - Aktualisiert die Liste
+
+
+ADMIN KOMMANDOS (nur für Basenburg)
+====================================
+
+/rankingreset
+  Zeigt Anweisungen zum Zurücksetzen aller Rankings
+
+/rankingreset confirm
+  Setzt alle Rankings zurück (Woche und All-Time)
+  WARNUNG: Diese Aktion kann nicht rückgängig gemacht werden!
+
+/rankingset <Spielername> <SalesPoints> [PurchasePoints]
+  Setzt die Punkte eines Spielers manuell
+  Beispiele:
+    /rankingset Bob 10        - Setzt Bob auf 10 Sales, 0 Purchases
+    /rankingset Bob 10 5      - Setzt Bob auf 10 Sales, 5 Purchases
+
+/rankingbroadcast
+  Sendet die aktuellen Rankings an alle Gildenmitglieder
+  Nützlich nach manuellen Änderungen
+
+/auctiondel <AuctionID>
+  Löscht eine Auktion aus dem Marktplatz
+  Die AuctionID wird angezeigt wenn man mit der Maus über ein Angebot fährt
+  Alternativ: Shift-Klick auf den roten X-Button im Marketplace (nur als Admin sichtbar)
+
+
+ZUSÄTZLICHE INFORMATIONEN
+=========================
+
+Ranking-System:
+- Rankings werden automatisch jeden Mittwoch um 8:00 Uhr zurückgesetzt
+- Verkäufer erhalten 1 Punkt pro verkauftem Item (Sales)
+- Käufer erhalten 1 Punkt pro gekauftem Item (Purchases)
+- Die Gesamtpunkte (Total) sind Sales + Purchases
+
+Ranking-Tab Features:
+- Klicke auf Spaltenüberschriften zum Sortieren
+- Standardsortierung ist nach Sales (höchste zuerst)
+- Links in der Seitenleiste: All Time, Current Week, historische Wochen
+- Top 3 Spieler erhalten spezielle Hervorhebungen (Gold, Silber, Bronze)
+
+Admin-Modus:
+- Nur der Charakter "Basenburg" hat Admin-Rechte
+- Admin-Befehle werden mit einer Bestätigungsmeldung quittiert
+- Alle Admin-Aktionen werden an andere Spieler synchronisiert

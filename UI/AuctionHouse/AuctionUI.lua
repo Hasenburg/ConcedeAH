@@ -22,11 +22,13 @@ local TAB_CREATE_OFFER = 2
 local TAB_PENDING = 3
 local TAB_CREATE_REQUEST = 4 -- removed, keeping for compatibility
 local TAB_OPEN = 5 -- removed, keeping for compatibility
+local TAB_RANKING = 6
 ns.AUCTION_TAB_MARKETPLACE = TAB_MARKETPLACE
 ns.AUCTION_TAB_CREATE_OFFER = TAB_CREATE_OFFER
 ns.AUCTION_TAB_PENDING = TAB_PENDING
 ns.AUCTION_TAB_CREATE_REQUEST = TAB_CREATE_REQUEST -- removed
 ns.AUCTION_TAB_OPEN = TAB_OPEN -- removed
+ns.AUCTION_TAB_RANKING = TAB_RANKING
 
 local BROWSE_PARAM_INDEX_PAGE = 5;
 local PRICE_TYPE_UNIT = 1;
@@ -719,6 +721,7 @@ function OFAuctionFrameSwitchTab(index)
 	if OFAuctionFrameCreateRequest then OFAuctionFrameCreateRequest:Hide() end
 	if OFAuctionFrameOpen then OFAuctionFrameOpen:Hide() end
 	if OFAuctionFramePending then OFAuctionFramePending:Hide() end
+	if OFAuctionFrameRanking then OFAuctionFrameRanking:Hide() end
     
     SetAuctionsTabShowing(false)
 
@@ -842,6 +845,30 @@ function OFAuctionFrameSwitchTab(index)
 		end
 		-- Update bid frame
 		OFAuctionFrameBid_Update()
+	elseif ( index == TAB_RANKING ) then
+		-- Hide marketplace checkbox when switching away
+		if OFMarketplaceHideMyOffersCheckbox then
+			OFMarketplaceHideMyOffersCheckbox:Hide()
+			if OFMarketplaceHideMyOffersCheckbox.text then
+				OFMarketplaceHideMyOffersCheckbox.text:Hide()
+			end
+		end
+		
+		-- Show Ranking frame with appropriate textures
+		OFAuctionFrameTopLeft:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-TopLeft");
+		OFAuctionFrameTop:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-Top");
+		OFAuctionFrameTopRight:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-TopRight");
+		OFAuctionFrameBotLeft:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-BotLeft");
+		OFAuctionFrameBot:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Auction-Bot");
+		OFAuctionFrameBotRight:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Bid-BotRight");
+		if OFAuctionFrameRanking then
+			OFAuctionFrameRanking:Show()
+		end
+		OFAuctionFrame.type = "ranking";
+		-- Hide bag items frame
+		if OFBagItemsFrame then
+			OFBagItemsFrame:Hide()
+		end
 	else
         AssignReviewTextures(true)
         OFAuctionFrameSettings:Show()
@@ -1688,6 +1715,11 @@ local function UpdateBrowseEntry(index, i, offset, button, auction, numBatchAuct
     ResizeEntryBrowse(i, button, numBatchAuctions, totalEntries)
 
     UpdateItemName(quality, buttonName, name)
+    
+    -- Add admin delete button if admin
+    if ns.IsAdmin and ns.IsAdmin() then
+        ns.AddAdminDeleteButton(button, auction.id)
+    end
     local itemButton = _G[buttonName.."Item"]
 
     local requestItem = _G[buttonName.."RequestItem"]
@@ -3327,11 +3359,15 @@ function OFAuctionsCreateAuctionButton_OnClick()
     local name, texture, count, quality, canUse, price, pricePerUnit, stackCount, totalCount, itemID = OFGetAuctionSellItemInfo()
     
     -- Get the actual quantity from the stack fields if visible
+    local stackSize = count
+    local numStacks = 1
+    
     if OFAuctionsStackSizeEntry and OFAuctionsStackSizeEntry:IsVisible() then
-        local stackSize = tonumber(OFAuctionsStackSizeEntry:GetText()) or count
-        -- For now, we'll use the stack size as the count per auction
-        -- In the future, could create multiple auctions for numStacks > 1
-        count = stackSize
+        stackSize = tonumber(OFAuctionsStackSizeEntry:GetText()) or count
+    end
+    
+    if OFAuctionsNumStacksEntry and OFAuctionsNumStacksEntry:IsVisible() then
+        numStacks = tonumber(OFAuctionsNumStacksEntry:GetText()) or 1
     end
     
     local note = OFAuctionsNote:GetText()
@@ -3353,18 +3389,37 @@ function OFAuctionsCreateAuctionButton_OnClick()
         raidAmount = 0
     end
 
-
+    -- Create multiple auctions based on numStacks
     local error, auctionCap, _
     auctionCap = ns.GetConfig().auctionCap
-    if #ns.GetMyAuctions() >= auctionCap then
-        error = string.format("You cannot have more than %d auctions", auctionCap)
-    else
-        _, error = ns.AuctionHouseAPI:CreateAuction(itemID, buyoutPrice, count, allowLoans, priceType, deliveryType, ns.AUCTION_TYPE_SELL, roleplay, deathRoll, duel, raidAmount, note)
+    local createdStacks = 0
+    local totalErrors = ""
+    
+    for i = 1, numStacks do
+        if #ns.GetMyAuctions() >= auctionCap then
+            if totalErrors ~= "" then totalErrors = totalErrors .. "\n" end
+            totalErrors = totalErrors .. string.format("Stopped at stack %d/%d: You cannot have more than %d auctions", i, numStacks, auctionCap)
+            break
+        else
+            _, error = ns.AuctionHouseAPI:CreateAuction(itemID, buyoutPrice, stackSize, allowLoans, priceType, deliveryType, ns.AUCTION_TYPE_SELL, roleplay, deathRoll, duel, raidAmount, note)
+            if error then
+                if totalErrors ~= "" then totalErrors = totalErrors .. "\n" end
+                totalErrors = totalErrors .. string.format("Stack %d: %s", i, error)
+                break
+            else
+                createdStacks = createdStacks + 1
+            end
+        end
     end
-    if error then
-        UIErrorsFrame:AddMessage(error, 1.0, 0.1, 0.1, 1.0);
+    
+    -- Show feedback
+    if totalErrors ~= "" then
+        UIErrorsFrame:AddMessage(totalErrors, 1.0, 0.1, 0.1, 1.0);
         PlaySoundFile("sound/interface/error.ogg", "Dialog")
-    else
+    elseif createdStacks > 0 then
+        if createdStacks < numStacks then
+            UIErrorsFrame:AddMessage(string.format("Created %d of %d stacks", createdStacks, numStacks), 1.0, 1.0, 0.0, 1.0);
+        end
         PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
     end
 

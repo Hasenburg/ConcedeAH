@@ -50,15 +50,9 @@ local ADMIN_USERS = {
 
 -- Constants
 local TEST_USERS = {
-    ["Zgfarmer"] = "Zgfarmer-pencilbow",
-    ["Hasenburg"] = "HS",
-    ["Hasenburgx"] = "HS",
-    ["Hasenburgxx"] = "HS",
-    ["Heysen"] = "HS",
-    ["Hasela"] = "HS",
-    ["Hasenborg"] = "HS",
-    ["Basenburg"] = "HS",
-    ["Basenhurg"] = "HS",
+    -- Debug messages disabled for all users
+    -- Add player names here to enable debug messages for specific users
+    -- Example: ["Playername"] = "identifier",
 }
 ns.TEST_USERS = TEST_USERS
 local TEST_USERS_RACE = {
@@ -104,6 +98,14 @@ ns.T_RATING_STATE = "RATING_STATE"
 ns.T_ADDON_VERSION_REQUEST = "ADDON_VERSION_REQUEST"
 ns.T_ADDON_VERSION_RESPONSE = "ADDON_VERSION_RESPONSE"
 
+-- Ranking events
+local T_RANKING_UPDATE = "RANKING_UPDATE"
+local T_RANKING_STATE_REQUEST = "RANKING_STATE_REQUEST"
+local T_RANKING_STATE = "RANKING_STATE"
+ns.T_RANKING_UPDATE = T_RANKING_UPDATE
+ns.T_RANKING_STATE_REQUEST = T_RANKING_STATE_REQUEST
+ns.T_RANKING_STATE = T_RANKING_STATE
+
 local G, W = "GUILD", "WHISPER"
 
 local CHANNEL_WHITELIST = {
@@ -136,6 +138,11 @@ local CHANNEL_WHITELIST = {
     [ns.T_BLACKLIST_STATE]         = {[W] = 1},
     [ns.T_BLACKLIST_ADD_OR_UPDATE] = {[G] = 1},
     [ns.T_BLACKLIST_DELETED]       = {[G] = 1},
+    
+    -- Ranking
+    [T_RANKING_UPDATE]         = {[G] = 1},
+    [T_RANKING_STATE_REQUEST]  = {[G] = 1},
+    [T_RANKING_STATE]          = {[W] = 1},
 }
 
 local function getFullName(name)
@@ -192,6 +199,16 @@ function AuctionHouse:OnInitialize()
     ns.MailboxUI:Initialize()
     ns.AuctionAlertWidget:OnInitialize()
     SettingsUI_Initialize()
+    
+    -- Initialize Ranking Sync
+    if ns.RankingSync then
+        ns.RankingSync:Initialize()
+    end
+    
+    -- Initialize Admin Commands
+    if ns.InitializeAdminCommands then
+        ns.InitializeAdminCommands()
+    end
 
     local age = time() - ns.AuctionHouseDB.lastUpdateAt
     local auctions = ns.AuctionHouseDB.auctions
@@ -275,6 +292,10 @@ end
 
 
 function AuctionHouse:BroadcastBlacklistUpdate(dataType, payload)
+    self:BroadcastMessage(self:Serialize({ dataType, payload }))
+end
+
+function AuctionHouse:BroadcastRankingUpdate(dataType, payload)
     self:BroadcastMessage(self:Serialize({ dataType, payload }))
 end
 
@@ -585,6 +606,22 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
 
 
 
+    -- Ranking events
+    elseif dataType == T_RANKING_UPDATE then
+        if ns.RankingSync then
+            ns.RankingSync:OnRankingUpdate(self:Serialize(data), sender)
+        end
+    
+    elseif dataType == T_RANKING_STATE_REQUEST then
+        if ns.RankingSync then
+            ns.RankingSync:OnRankingStateRequest(sender)
+        end
+    
+    elseif dataType == T_RANKING_STATE then
+        if ns.RankingSync then
+            ns.RankingSync:OnRankingState(self:Serialize(data), sender)
+        end
+    
     elseif dataType == ns.T_ADDON_VERSION_REQUEST then
         knownAddonVersions[payload.version] = true
         local latestVersion = ns.GetLatestVersion(knownAddonVersions)
@@ -1027,20 +1064,10 @@ function AuctionHouse:CleanupAuctionsAndTrades()
     end
 end
 
-local function playRandomDeathClip()
-    if GetRealmName() ~= "Doomhowl" then
-        return
-    end
-
-    local clipNum = random(1, 24)
-    PlaySoundFile("Interface\\AddOns\\"..addonName.."\\Media\\DeathAudioClips\\death_" .. clipNum .. ".mp3", "Master")
-end
-
 ns.GameEventHandler:On("PLAYER_DEAD", function()
     -- Auctions are no longer removed on death
     -- print(ChatPrefix() .. " removing auctions after death")
     -- AuctionHouse:CleanupAuctionsAndTrades()
-    playRandomDeathClip()
 end)
 
 

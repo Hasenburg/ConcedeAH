@@ -194,6 +194,22 @@ function OFBagItemButton_OnClick(self)
     -- Update selection
     selectedBagItem = item
     OFBagItemsFrame_Update()
+    
+    -- Set default price if configured for this item
+    if item.itemID and ns.GetItemDefaultPrice then
+        local defaultPrice = ns.GetItemDefaultPrice(item.itemID)
+        if defaultPrice and defaultPrice > 0 then
+            -- Set the price in the appropriate money frame
+            if OFBuyoutPrice then
+                -- For Auctions tab
+                MoneyInputFrame_SetCopper(OFBuyoutPrice, defaultPrice)
+            end
+            if OFCreateOfferBuyoutPrice then
+                -- For Create Offer tab
+                MoneyInputFrame_SetCopper(OFCreateOfferBuyoutPrice, defaultPrice)
+            end
+        end
+    end
 end
 
 function OFBagItemButton_OnEnter(self)

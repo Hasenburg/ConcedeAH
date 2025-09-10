@@ -3,9 +3,10 @@
 ## Title: ConcedeAH
 ## Notes: Guild Auction House for |cFFFF0000Concede|r
 ## Author: Hasenburg
-## SavedVariables: AuctionHouseDBSaved, AHConfigSaved, PlayerPrefsSaved
+## SavedVariables: AuctionHouseDBSaved, AHConfigSaved, PlayerPrefsSaved, OFRankingData
 
 dependencies.xml
+AdminMode.lua
 MockDataProvider.lua
 GameEventHandler.lua
 MagicLinks.lua
@@ -26,6 +27,7 @@ ItemDB/ItemsVanilla.lua
 ItemDB/ItemDB.lua
 ItemDB/Enchants.lua
 ItemDB/SpecialItems.lua
+ItemDefaultPrices.lua
 GuildRegister.lua
 Chat/ChatUtils.lua
 # Debug/DebugCommands.lua
@@ -59,10 +61,13 @@ UI/AuctionHouse/CreateOfferTab.lua
 UI/AuctionHouse/CreateRequestTab.lua
 UI/AuctionHouse/OpenTab.lua
 UI/AuctionHouse/PendingTab.lua
+UI/AuctionHouse/RankingTab.lua
+UI/AuctionHouse/RankingSync.lua
 UI/AuctionHouse/AuctionUI.lua
 UI/AuctionHouse/AuctionUITemplates.xml
 UI/AuctionHouse/AuctionUI.xml
 UI/AuctionHouse/NewTabFrames.xml
+UI/AuctionHouse/RankingTab.xml
 UI/AuctionHouse/AuctionBuyConfirmPrompt.lua
 UI/AuctionHouse/AuctionWishlistConfirmPrompt.lua
 UI/AuctionHouse/AuctionSelectEnchantPrompt.lua

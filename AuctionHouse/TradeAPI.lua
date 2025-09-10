@@ -21,16 +21,100 @@ function TradeAPI:OnInitialize()
     self.eventFrame:RegisterEvent("TRADE_PLAYER_ITEM_CHANGED")
     self.eventFrame:RegisterEvent("TRADE_TARGET_ITEM_CHANGED")
     self.eventFrame:RegisterEvent("TRADE_ACCEPT_UPDATE")
+    
+    -- Debug command to check auction statuses
+    SLASH_CHECKAUCTIONS1 = "/checkauctions"
+    SlashCmdList["CHECKAUCTIONS"] = function()
+        local me = UnitName("player")
+        local meShort = string.match(me, "^([^-]+)") or me
+        local API = ns.AuctionHouseAPI
+        print("|cFFFFFF00[Auctions Debug]|r Checking all auctions for " .. me)
+        if meShort ~= me then
+            print("|cFFFFFF00[Auctions Debug]|r Also checking short name: " .. meShort)
+        end
+        
+        local allAuctions = API:GetAllAuctions()
+        local mySellerCount = 0
+        local myBuyerCount = 0
+        local pendingTradeCount = 0
+        
+        for _, auction in ipairs(allAuctions) do
+            if auction.status == ns.AUCTION_STATUS_PENDING_TRADE then
+                pendingTradeCount = pendingTradeCount + 1
+            end
+            
+            -- Check both full name and short name
+            local isOwner = (auction.owner == me) or (auction.owner == meShort)
+            local isBuyer = (auction.buyer == me) or (auction.buyer == meShort)
+            
+            if isOwner then
+                mySellerCount = mySellerCount + 1
+                print("|cFF00FF00[Seller]|r ID: " .. auction.id .. ", Status: " .. (auction.status or "nil") .. ", Buyer: " .. (auction.buyer or "none") .. ", ItemID: " .. (auction.itemID or "nil"))
+            elseif isBuyer then
+                myBuyerCount = myBuyerCount + 1
+                print("|cFF00FFFF[Buyer]|r ID: " .. auction.id .. ", Status: " .. (auction.status or "nil") .. ", Owner: " .. (auction.owner or "none") .. ", ItemID: " .. (auction.itemID or "nil"))
+            end
+        end
+        
+        print("|cFFFFFF00[Summary]|r You are seller in " .. mySellerCount .. " auctions, buyer in " .. myBuyerCount .. " auctions")
+        print("|cFFFFFF00[Summary]|r Total pending_trade auctions: " .. pendingTradeCount)
+        print("|cFFFFFF00[Info]|r Use /testbuy <otherPlayerName> to create a test auction")
+    end
+    
+    -- Debug command to create a test auction and buy it
+    SLASH_TESTBUY1 = "/testbuy"
+    SlashCmdList["TESTBUY"] = function(targetPlayer)
+        if not targetPlayer or targetPlayer == "" then
+            print("|cFFFF0000Usage:|r /testbuy <otherPlayerName>")
+            print("This will create a test auction as the other player and buy it as you")
+            return
+        end
+        
+        local me = UnitName("player")
+        local API = ns.AuctionHouseAPI
+        
+        -- Create a test auction as the target player
+        local testAuction = {
+            id = "TEST_" .. time(),
+            owner = targetPlayer,
+            buyer = nil,
+            itemID = 2589, -- Linen Cloth
+            quantity = 5,
+            price = 100, -- 1 silver
+            status = ns.AUCTION_STATUS_ACTIVE,
+            createdAt = time(),
+            rev = 1,
+            deliveryType = ns.DELIVERY_TYPE_TRADE
+        }
+        
+        -- Add to database
+        API:UpdateDB({auction = testAuction})
+        print("|cFF00FF00[Test]|r Created test auction: " .. testAuction.id .. " owned by " .. targetPlayer)
+        
+        -- Now "buy" it as current player
+        testAuction.buyer = me
+        testAuction.status = ns.AUCTION_STATUS_PENDING_TRADE
+        testAuction.rev = 2
+        API:UpdateDB({auction = testAuction})
+        
+        print("|cFF00FF00[Test]|r You bought the test auction. It's now pending_trade.")
+        print("|cFF00FF00[Test]|r Try trading with " .. targetPlayer .. " to test auto-fill")
+    end
+    
+    -- Removed /tm command due to Classic API compatibility issues
+    -- The Trade Amount window shows the required amount visually instead
 
     -- Create a separate frame for secure trade operations
     self.tradeFrame = CreateFrame("Frame")
     self.tradeFrame:SetScript("OnEvent", function(_, event)
-        local targetName = GetUnitName("NPC", true)
-        if event == "TRADE_SHOW" and targetName then
-            -- Delay slightly, workaround for items sometimes not getting tracked
-            C_Timer.After(1, function()
-                self:TryPrefillTradeWindow(targetName)
-            end)
+        if event == "TRADE_SHOW" then
+            local targetName = UnitName("NPC")
+            if targetName then
+                -- Increased delay to ensure UI is ready
+                C_Timer.After(0.8, function()
+                    self:TryPrefillTradeWindow(targetName)
+                end)
+            end
         end
     end)
     self.tradeFrame:RegisterEvent("TRADE_SHOW")
@@ -241,12 +325,20 @@ function TradeAPI:OnEvent(event, ...)
         if (arg2 == ERR_TRADE_CANCELLED) then
             -- print("[DEBUG] Trade cancelled")
             Reset("trade cancelled")
+            -- Hide the trade info frame if it exists
+            if TradeAPI.tradeInfoFrame then
+                TradeAPI.tradeInfoFrame:Hide()
+            end
         elseif (arg2 == ERR_TRADE_COMPLETE) then
             HandleTradeOK()
+            -- Hide the trade info frame if it exists
+            if TradeAPI.tradeInfoFrame then
+                TradeAPI.tradeInfoFrame:Hide()
+            end
         end
 
     elseif event == "TRADE_SHOW" then
-        CurrentTrade().targetName = GetUnitName("NPC", true)
+        CurrentTrade().targetName = UnitName("NPC")
 
     elseif event == "TRADE_PLAYER_ITEM_CHANGED" then
         local arg1 = ...
@@ -272,6 +364,20 @@ function TradeAPI:OnEvent(event, ...)
     end
 end
 
+-- Helper function to compare names (handles realm names)
+local function namesMatch(name1, name2)
+    if not name1 or not name2 then return false end
+    
+    -- Direct match
+    if name1 == name2 then return true end
+    
+    -- Strip realm names and compare
+    local short1 = string.match(name1, "^([^-]+)") or name1
+    local short2 = string.match(name2, "^([^-]+)") or name2
+    
+    return short1 == short2
+end
+
 -- findMatchingAuction picks the last-created auction that involves 'me' and targetName
 -- we pick the last-created auction so both parties agree on which one should be prefilled
 local function findMatchingAuction(myPendingAsSeller, myPendingAsBuyer, targetName)
@@ -280,7 +386,7 @@ local function findMatchingAuction(myPendingAsSeller, myPendingAsBuyer, targetNa
 
     -- Check if I'm the seller and the partner is the buyer
     for _, auction in ipairs(myPendingAsSeller) do
-        if auction.buyer == targetName then
+        if namesMatch(auction.buyer, targetName) then
             if not bestMatch or auction.createdAt > bestMatch.createdAt then
                 bestMatch = auction
                 isSeller = true
@@ -290,7 +396,7 @@ local function findMatchingAuction(myPendingAsSeller, myPendingAsBuyer, targetNa
 
     -- Check if I'm the buyer and the partner is the seller
     for _, auction in ipairs(myPendingAsBuyer) do
-        if auction.owner == targetName then
+        if namesMatch(auction.owner, targetName) then
             if not bestMatch or auction.createdAt > bestMatch.createdAt then
                 bestMatch = auction
                 isSeller = false
@@ -301,29 +407,223 @@ local function findMatchingAuction(myPendingAsSeller, myPendingAsBuyer, targetNa
     return bestMatch, isSeller
 end
 
-function TradeAPI:PrefillGold(relevantAuction, totalPrice, targetName)
-    -- I'm the buyer: prefill the gold amount
-    if totalPrice > 0 and relevantAuction.status ~= ns.AUCTION_STATUS_PENDING_LOAN
-        and relevantAuction.status ~= ns.AUCTION_STATUS_SENT_LOAN then
-        local playerMoney = GetMoney()
-
-        if playerMoney >= totalPrice then
-            -- NOTE: not using SetTrademoney because that one doesn't update the UI properly
-            -- see https://www.reddit.com/r/classicwow/comments/hfp1nm/comment/izsvq5c/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
-            MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, totalPrice)
-
-            -- success message
-            print(ChatPrefix() .. " Auto-filled trade with " .. GetCoinTextureString(totalPrice) ..
-                    " for auction from " .. targetName)
-        else
-            print(ChatPrefixError() .. " You don't have enough gold to complete this trade. "
-                .. "The auction costs " .. GetCoinTextureString(totalPrice) .. "")
+-- Helper function to find ALL stacks of an item with exact quantity
+-- Must be defined before use
+local function FindAllItemStacksInBags(itemID, quantity)
+    local stacks = {}
+    
+    for bag = 0, NUM_BAG_SLOTS do
+        local slots = C_Container.GetContainerNumSlots(bag)
+        for slot = 1, slots do
+            local itemInfo = C_Container.GetContainerItemInfo(bag, slot)
+            if itemInfo then
+                local count = itemInfo.stackCount
+                local link = itemInfo.hyperlink
+                local bagItemID = tonumber(link:match("item:(%d+):"))
+                
+                if bagItemID == itemID and count == quantity then
+                    table.insert(stacks, {bag = bag, slot = slot, count = count})
+                end
+            end
         end
+    end
+    
+    return stacks
+end
+
+function TradeAPI:ShowTradeAmountWindow(auctions)
+    -- Create or update the trade amount window with itemized list
+    C_Timer.After(0.2, function()
+        -- Hide old frame if exists
+        if TradeAPI.tradeInfoFrame then
+            TradeAPI.tradeInfoFrame:Hide()
+        end
+        
+        -- Create new frame
+        TradeAPI.tradeInfoFrame = CreateFrame("Frame", "ConcedeAHTradeInfo", TradeFrame)
+        
+        -- Calculate frame height based on number of items
+        local frameHeight = 60 + (#auctions * 18) + 30 -- Header + items + total line
+        TradeAPI.tradeInfoFrame:SetSize(250, frameHeight)
+        TradeAPI.tradeInfoFrame:SetPoint("TOPLEFT", TradeFrame, "TOPRIGHT", 5, -30)
+        
+        -- Create background texture
+        local bg = TradeAPI.tradeInfoFrame:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0, 0, 0, 0.8)
+        
+        -- Header "Trade Amount"
+        TradeAPI.tradeInfoFrame.header = TradeAPI.tradeInfoFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        TradeAPI.tradeInfoFrame.header:SetPoint("TOP", 0, -10)
+        TradeAPI.tradeInfoFrame.header:SetText("Trade Amount")
+        TradeAPI.tradeInfoFrame.header:SetTextColor(1, 1, 0) -- Yellow
+        
+        -- Item list
+        local yOffset = -30
+        local totalAmount = 0
+        
+        for i, auction in ipairs(auctions) do
+            local itemLine = TradeAPI.tradeInfoFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            itemLine:SetPoint("TOPLEFT", 10, yOffset)
+            itemLine:SetPoint("TOPRIGHT", -10, yOffset)
+            itemLine:SetJustifyH("LEFT")
+            
+            local itemName, itemLink = ns.GetItemInfo(auction.itemID, auction.quantity)
+            local price = (auction.price or 0) + (auction.tip or 0)
+            totalAmount = totalAmount + price
+            
+            if auction.itemID == ns.ITEM_ID_GOLD then
+                itemLine:SetText(GetCoinTextureString(auction.quantity or price))
+            else
+                local qty = auction.quantity or 1
+                itemLine:SetText(qty .. "x " .. (itemLink or itemName or "Unknown") .. " - " .. GetCoinTextureString(price))
+            end
+            
+            yOffset = yOffset - 18
+        end
+        
+        -- Separator line
+        local separator = TradeAPI.tradeInfoFrame:CreateTexture(nil, "OVERLAY")
+        separator:SetPoint("LEFT", 10, yOffset - 5)
+        separator:SetPoint("RIGHT", -10, yOffset - 5)
+        separator:SetHeight(1)
+        separator:SetColorTexture(1, 1, 1, 0.3)
+        
+        -- Total amount
+        local totalLine = TradeAPI.tradeInfoFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        totalLine:SetPoint("TOPLEFT", 10, yOffset - 10)
+        totalLine:SetPoint("TOPRIGHT", -10, yOffset - 10)
+        totalLine:SetJustifyH("LEFT")
+        totalLine:SetText("Total: " .. GetCoinTextureString(totalAmount))
+        totalLine:SetTextColor(0, 1, 0) -- Green
+        
+        TradeAPI.tradeInfoFrame:Show()
+    end)
+end
+
+function TradeAPI:PrefillGold(relevantAuction, totalPrice, targetName, iAmSeller)
+    -- Legacy function - convert to new format
+    if iAmSeller then
+        -- Selling gold
+        local auction = {
+            itemID = ns.ITEM_ID_GOLD,
+            quantity = totalPrice,
+            price = 0
+        }
+        self:PrefillMultipleItems({auction}, targetName)
+    else
+        -- Buying - show the amount
+        local auction = {
+            itemID = relevantAuction.itemID,
+            quantity = relevantAuction.quantity,
+            price = totalPrice
+        }
+        self:PrefillBuyerGold({auction}, targetName)
     end
 end
 
-function TradeAPI:PrefillItem(itemID, quantity, targetName)
+function TradeAPI:PrefillMultipleItems(auctions, targetName)
+    -- I'm the seller: prefill trade with multiple items
+    local itemsPlaced = 0
+    local maxTradeSlots = 6 -- WoW Classic has 6 trade slots (7th is for non-stackable)
+    
+    -- Show trade amount window with all items
+    self:ShowTradeAmountWindow(auctions)
+    
+    -- Group auctions by itemID and quantity to find matching stacks
+    local stacksNeeded = {}
+    for _, auction in ipairs(auctions) do
+        if auction.itemID ~= ns.ITEM_ID_GOLD then
+            local key = auction.itemID .. "_" .. (auction.quantity or 1)
+            if not stacksNeeded[key] then
+                stacksNeeded[key] = {
+                    itemID = auction.itemID,
+                    quantity = auction.quantity or 1,
+                    auctions = {}
+                }
+            end
+            table.insert(stacksNeeded[key].auctions, auction)
+        end
+    end
+    
+    -- Try to place each stack group in trade
+    for _, stackInfo in pairs(stacksNeeded) do
+        local itemID = stackInfo.itemID
+        local quantity = stackInfo.quantity
+        local numStacksNeeded = #stackInfo.auctions
+        
+        -- Find all matching stacks in bags
+        local availableStacks = FindAllItemStacksInBags(itemID, quantity)
+        
+        if #availableStacks < numStacksNeeded then
+            local itemName = select(2, ns.GetItemInfo(itemID)) or "item"
+            print(ChatPrefixError() .. " Need " .. numStacksNeeded .. " stack(s) of " .. quantity .. "x " .. itemName .. " but only found " .. #availableStacks)
+        end
+        
+        -- Place as many stacks as possible
+        local stacksToPlace = math.min(numStacksNeeded, #availableStacks)
+        for i = 1, stacksToPlace do
+            if itemsPlaced >= maxTradeSlots then
+                print(ChatPrefixError() .. " Trade window full! Could not add all items. Please complete this trade and trade again for remaining items.")
+                break
+            end
+            
+            local stack = availableStacks[i]
+            C_Container.PickupContainerItem(stack.bag, stack.slot)
+            ClickTradeButton(itemsPlaced + 1)
+            itemsPlaced = itemsPlaced + 1
+            
+            local name, itemLink = ns.GetItemInfo(itemID, quantity)
+            print(ChatPrefix() .. " Added " .. quantity .. "x " .. (itemLink or name or "item"))
+        end
+    end
+    
+    if itemsPlaced > 0 then
+        print(ChatPrefix() .. " Added " .. itemsPlaced .. " stack(s) to trade for " .. targetName)
+    end
+end
+
+function TradeAPI:PrefillBuyerGold(auctions, targetName)
+    -- I'm the buyer: show all items I'm buying and the total gold to trade
+    
+    -- Show trade amount window with all items
+    self:ShowTradeAmountWindow(auctions)
+    
+    -- Calculate total gold needed
+    local totalGold = 0
+    for _, auction in ipairs(auctions) do
+        local price = (auction.price or 0) + (auction.tip or 0)
+        totalGold = totalGold + price
+    end
+    
+    -- Check if player has enough gold
+    local playerMoney = GetMoney()
+    if playerMoney >= totalGold then
+        print(ChatPrefix() .. " Trade " .. GetCoinTextureString(totalGold) .. " for " .. #auctions .. " item(s) from " .. targetName)
+    else
+        print(ChatPrefixError() .. " You need " .. GetCoinTextureString(totalGold) .. " but only have " .. GetCoinTextureString(playerMoney))
+    end
+end
+
+function TradeAPI:PrefillItem(itemID, quantity, targetName, totalPrice)
+    -- Legacy single item function - now calls multiple items with single auction
+    local auction = {
+        itemID = itemID,
+        quantity = quantity,
+        price = totalPrice
+    }
+    self:PrefillMultipleItems({auction}, targetName)
+end
+
+-- Keep the original single-item helper function
+function TradeAPI:PrefillItemOld(itemID, quantity, targetName, totalPrice)
     -- I'm the owner: prefill trade with the item
+    
+    -- Show trade amount window for seller (buyer's expected payment)
+    if totalPrice and totalPrice > 0 then
+        self:ShowTradeAmountWindow({{itemID = itemID, quantity = quantity, price = totalPrice}})
+    end
+    
     -- Use new helper function to find the item
     local bag, slot, exactMatch = self:FindBestMatchForTrade(itemID, quantity)
     
@@ -372,27 +672,45 @@ function TradeAPI:PrefillItem(itemID, quantity, targetName)
 end
 
 function TradeAPI:TryPrefillTradeWindow(targetName)
-    ns.DebugLog("[DEBUG] TryPrefillTradeWindow called with targetName:", targetName)
-    
     if not targetName or targetName == "" then
-        ns.DebugLog("[DEBUG] No target name, returning")
         return
     end
 
     local me = UnitName("player")
-    if me == targetName then
-        ns.DebugLog("[DEBUG] Trading with self, returning")
+    -- Strip realm name if present for local comparisons
+    local meShort = string.match(me, "^([^-]+)") or me
+    
+    if me == targetName or meShort == targetName then
+        -- Trading with self, exit silently
         return
     end
 
     local AuctionHouseAPI = ns.AuctionHouseAPI
 
     -- 1. Gather potential auctions where I'm the seller or the buyer and the status is pending trade
+    -- Try both with and without realm name
     local myPendingAsSeller = AuctionHouseAPI:GetAuctionsWithOwnerAndStatus(me, { ns.AUCTION_STATUS_PENDING_TRADE, ns.AUCTION_STATUS_PENDING_LOAN })
     local myPendingAsBuyer  = AuctionHouseAPI:GetAuctionsWithBuyerAndStatus(me, { ns.AUCTION_STATUS_PENDING_TRADE, ns.AUCTION_STATUS_PENDING_LOAN })
     
-    ns.DebugLog("[DEBUG] Found", #myPendingAsSeller, "auctions where I'm seller")
-    ns.DebugLog("[DEBUG] Found", #myPendingAsBuyer, "auctions where I'm buyer")
+    -- Also try with short name if different
+    if meShort ~= me then
+        local shortSeller = AuctionHouseAPI:GetAuctionsWithOwnerAndStatus(meShort, { ns.AUCTION_STATUS_PENDING_TRADE, ns.AUCTION_STATUS_PENDING_LOAN })
+        local shortBuyer = AuctionHouseAPI:GetAuctionsWithBuyerAndStatus(meShort, { ns.AUCTION_STATUS_PENDING_TRADE, ns.AUCTION_STATUS_PENDING_LOAN })
+        
+        -- Merge results
+        for _, auction in ipairs(shortSeller) do
+            table.insert(myPendingAsSeller, auction)
+        end
+        for _, auction in ipairs(shortBuyer) do
+            table.insert(myPendingAsBuyer, auction)
+        end
+    end
+    
+    -- Only show debug if no auctions found
+    if #myPendingAsSeller == 0 and #myPendingAsBuyer == 0 then
+        print("|cFFFFFF00[Trade]|r No pending auctions found for player " .. me)
+        print("|cFFFFFF00[Trade]|r Use /checkauctions to see all your auctions")
+    end
     
     -- Debug: Show details of auctions
     for _, auction in ipairs(myPendingAsSeller) do
@@ -420,40 +738,47 @@ function TradeAPI:TryPrefillTradeWindow(targetName)
     myPendingAsSeller = filterAuctions(myPendingAsSeller)
     myPendingAsBuyer = filterAuctions(myPendingAsBuyer)
 
-    -- 2. Attempt to find an auction that matches the current trade partner
-    local relevantAuction, isSeller = findMatchingAuction(myPendingAsSeller, myPendingAsBuyer, targetName)
-
-    if not relevantAuction then
-        -- No matching auction
-        ns.DebugLog("[DEBUG] No matching auction found for", targetName)
-        return
-    end
-
-    local itemID = relevantAuction.itemID
-    local quantity = relevantAuction.quantity or 1
-    local totalPrice = (relevantAuction.price or 0) + (relevantAuction.tip or 0)
+    -- 2. Find ALL auctions that match the current trade partner
+    local matchingAuctionsAsSeller = {}
+    local matchingAuctionsAsBuyer = {}
     
-    ns.DebugLog("[DEBUG] Found auction: itemID =", itemID, "quantity =", quantity, "isSeller =", isSeller)
-
-    if ns.IsUnsupportedFakeItem(itemID) then
-        print(ChatPrefix() .. " Unknown Item when trading with " .. targetName .. ". Update to the latest version to trade this item")
+    -- Collect all matching auctions where I'm the seller
+    for _, auction in ipairs(myPendingAsSeller) do
+        if namesMatch(auction.buyer, targetName) then
+            table.insert(matchingAuctionsAsSeller, auction)
+        end
+    end
+    
+    -- Collect all matching auctions where I'm the buyer
+    for _, auction in ipairs(myPendingAsBuyer) do
+        if namesMatch(auction.owner, targetName) then
+            table.insert(matchingAuctionsAsBuyer, auction)
+        end
+    end
+    
+    -- Determine if we're seller or buyer based on which list has items
+    local matchingAuctions = {}
+    local isSeller = false
+    
+    if #matchingAuctionsAsSeller > 0 then
+        matchingAuctions = matchingAuctionsAsSeller
+        isSeller = true
+    elseif #matchingAuctionsAsBuyer > 0 then
+        matchingAuctions = matchingAuctionsAsBuyer
+        isSeller = false
+    else
+        -- No matching auctions - exit silently
         return
     end
-
+    
+    print(ChatPrefix() .. " Found " .. #matchingAuctions .. " pending auction(s) with " .. targetName)
+    
     if isSeller then
-        if itemID == ns.ITEM_ID_GOLD then
-            -- NOTE: here, quantity is the amount of copper
-            ns.DebugLog("[DEBUG] Calling PrefillGold (as seller)")
-            self:PrefillGold(relevantAuction, quantity, targetName)
-        else
-            ns.DebugLog("[DEBUG] Calling PrefillItem with quantity:", quantity)
-            self:PrefillItem(itemID, quantity, targetName)
-        end
+        -- I'm the seller - prefill items and show total price expected
+        self:PrefillMultipleItems(matchingAuctions, targetName)
     else
-        -- NOTE: for ITEM_ID_GOLD totalPrice is expected to be 0
-        -- But maybe we'll support for tips or other weirdness later on, so just handle what's on the auction
-        ns.DebugLog("[DEBUG] Calling PrefillGold (as buyer)")
-        self:PrefillGold(relevantAuction, totalPrice, targetName)
+        -- I'm the buyer - show all items and total price to pay
+        self:PrefillBuyerGold(matchingAuctions, targetName)
     end
 end
 
