@@ -10,11 +10,17 @@ function RankingSync:Initialize()
     -- Store reference to AuctionHouse
     self.AuctionHouse = ns.AuctionHouse
     
-    print("|cFF00FF00[Ranking Sync]|r Initialized - Will request sync in 5 seconds")
+    print("|cFF00FF00[Ranking Sync]|r Initialized - Will sync in 5 seconds")
     
-    -- Request initial state from guild after a delay for everyone
+    -- First broadcast our own data, then request from others
     C_Timer.After(5, function()
-        self:RequestRankingState()
+        -- Broadcast our data first
+        self:BroadcastFullRankingState()
+        
+        -- Then request data from others after a short delay
+        C_Timer.After(2, function()
+            self:RequestRankingState()
+        end)
     end)
 end
 
@@ -143,6 +149,55 @@ function RankingSync:RequestRankingState()
     
     print("|cFFFFFF00[Ranking Sync]|r Requesting ranking state from guild...")
     self.AuctionHouse:BroadcastRankingUpdate(ns.T_RANKING_STATE_REQUEST, {})
+end
+
+function RankingSync:BroadcastFullRankingState()
+    if not self.AuctionHouse then return end
+    
+    -- Initialize if needed
+    OFAuctionFrameRanking_InitializeData()
+    
+    -- Count data
+    local sellerCount = 0
+    local buyerCount = 0
+    for _ in pairs(OFRankingData.currentWeek.sellers or {}) do
+        sellerCount = sellerCount + 1
+    end
+    for _ in pairs(OFRankingData.currentWeek.buyers or {}) do
+        buyerCount = buyerCount + 1
+    end
+    
+    if sellerCount == 0 and buyerCount == 0 then
+        print("|cFFFFFF00[Ranking Sync]|r No ranking data to broadcast")
+        return
+    end
+    
+    -- Broadcast each seller individually
+    for contributor, points in pairs(OFRankingData.currentWeek.sellers or {}) do
+        local payload = {
+            contributor = contributor,
+            type = "seller",
+            points = points,
+            weekStartTime = OFRankingData.weekStartTime,
+            timestamp = time()
+        }
+        self.AuctionHouse:BroadcastRankingUpdate(ns.T_RANKING_UPDATE, payload)
+    end
+    
+    -- Broadcast each buyer individually
+    for contributor, points in pairs(OFRankingData.currentWeek.buyers or {}) do
+        local payload = {
+            contributor = contributor,
+            type = "buyer",
+            points = points,
+            weekStartTime = OFRankingData.weekStartTime,
+            timestamp = time()
+        }
+        self.AuctionHouse:BroadcastRankingUpdate(ns.T_RANKING_UPDATE, payload)
+    end
+    
+    print(string.format("|cFF00FF00[Ranking Sync]|r Broadcasted full ranking state: %d sellers, %d buyers", 
+        sellerCount, buyerCount))
 end
 
 function RankingSync:OnRankingStateRequest(sender)

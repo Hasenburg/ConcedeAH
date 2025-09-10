@@ -55,11 +55,21 @@ function OFAuctionFrameRanking_OnLoad(self)
     SLASH_RANKINGSYNC1 = "/rankingsync"
     SLASH_RANKINGDEBUG1 = "/rankingdebug"
     SLASH_RANKINGUPDATE1 = "/rankingupdate"
+    SLASH_RANKINGBROADCAST1 = "/rankingbroadcast"
     
     SlashCmdList["RANKINGSYNC"] = function()
         print("|cFFFFFF00[Ranking]|r Forcing sync request...")
         if ns.RankingSync then
             ns.RankingSync:RequestRankingState()
+        end
+    end
+    
+    SlashCmdList["RANKINGBROADCAST"] = function()
+        print("|cFFFFFF00[Ranking]|r Broadcasting full ranking state to guild...")
+        if ns.RankingSync then
+            ns.RankingSync:BroadcastFullRankingState()
+        else
+            print("|cFFFF0000[Ranking]|r RankingSync module not available")
         end
     end
     
@@ -334,13 +344,6 @@ function OFAuctionFrameRanking_AddSellerPoint(contributor)
         ns.RankingSync:BroadcastRankingUpdate(contributor, "seller", OFRankingData.currentWeek.sellers[contributor])
     end
     
-    -- Also request sync to ensure we have latest data from other players
-    if ns.RankingSync and ns.RankingSync.RequestRankingState then
-        C_Timer.After(1, function()
-            ns.RankingSync:RequestRankingState()
-        end)
-    end
-    
     if OFAuctionFrameRanking and OFAuctionFrameRanking:IsShown() then
         OFAuctionFrameRanking_UpdateList()
     end
@@ -364,13 +367,6 @@ function OFAuctionFrameRanking_AddBuyerPoint(contributor)
     
     if ns.RankingSync then
         ns.RankingSync:BroadcastRankingUpdate(contributor, "buyer", OFRankingData.currentWeek.buyers[contributor])
-    end
-    
-    -- Also request sync to ensure we have latest data from other players
-    if ns.RankingSync and ns.RankingSync.RequestRankingState then
-        C_Timer.After(1, function()
-            ns.RankingSync:RequestRankingState()
-        end)
     end
     
     if OFAuctionFrameRanking and OFAuctionFrameRanking:IsShown() then
