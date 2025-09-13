@@ -8,13 +8,11 @@ An auction house addon for guild-internal trading in World of Warcraft Classic.
 ### You must ALWAYS do these manually:
 1. **Enter gold yourself** - The addon cannot set gold automatically
 2. **Split stacks beforehand** - Items must be in the exact size in your inventory
-3. **Maximum 6 items per trade** - For more items, perform multiple trades
 
 ### Synchronization Limitation (WoW Classic Limitation):
 ⚠️ **Auctions and rankings are ONLY transmitted to players in the same zone!**
 - New auctions/rankings only reach players in your vicinity
 - Players in other zones see updates only after manual sync
-- **Solution:** Meet in the same city (e.g., Orgrimmar/Stormwind) and use `/reload` or `/rankingsync`
 - This is a WoW Classic API limitation of the GUILD channel
 
 ---
@@ -36,7 +34,6 @@ An auction house addon for guild-internal trading in World of Warcraft Classic.
 
 ### If items are NOT automatically inserted:
 - Check stack size (must match exactly!)
-- Type `/checkauctions` to see your auctions
 - Insert items manually if necessary
 
 ---
@@ -74,7 +71,6 @@ An auction house addon for guild-internal trading in World of Warcraft Classic.
 |------|-----|----------|
 | **Enter gold** | WoW Classic API limitation | Buyer must enter amount manually |
 | **Split stacks** | Addon cannot split stacks | Split to correct size BEFORE trade |
-| **More than 6 items** | WoW trade limit | Perform multiple trades |
 | **Cross-zone sync** | GUILD channel range limit | Meet in same zone for sync |
 
 ### Known Issues:
