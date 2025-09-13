@@ -1,108 +1,117 @@
-# ConcedeAH - Auction House Addon
+# ConcedeAH - Benutzeranleitung
 
-## Übersicht
-ConcedeAH ist ein Guild-Auktionshaus-Addon für World of Warcraft Classic, das es Gildenmitgliedern ermöglicht, Items untereinander zu handeln mit automatisierter Unterstützung.
+## Was ist ConcedeAH?
+Ein Auktionshaus-Addon für den gildeninternen Handel in World of Warcraft Classic.
 
-## Hauptfunktionen
+## ⚠️ WICHTIGE HINWEISE VOR DEM START
 
-### 1. **Automatisches Trade-Fenster Ausfüllen**
-- Beim Öffnen eines Handelsfensters werden automatisch die relevanten Items eingefügt
-- Unterstützt mehrere Auktionen in einem Trade (bis zu 6 Items)
-- Zeigt automatisch ein Trade Amount Fenster mit detaillierter Auflistung
+### Das musst du IMMER manuell machen:
+1. **Gold selbst eingeben** - Das Addon kann kein Gold automatisch setzen
+2. **Stacks vorher splitten** - Items müssen in der exakten Größe im Inventar sein
+3. **Maximal 6 Items pro Trade** - Bei mehr Items mehrere Trades durchführen
 
-### 2. **Trade Amount Fenster**
-- Zeigt eine itemisierte Liste aller zu handelnden Items
-- Einzelpreise für jede Position
-- Gesamtsumme am Ende
-- Sichtbar für beide Parteien (Käufer und Verkäufer)
+---
 
-### 3. **Multi-Stack Support**
-- Kann mehrere Stacks des gleichen Items korrekt handhaben
-- Beispiel: 2x 5er Stack Leinenstoff werden als 2 separate Stacks eingefügt
+## 📦 VERKAUFEN - Schritt für Schritt
 
-### 4. **Ranking System**
-- Jede abgeschlossene Auktion zählt als 1 Punkt
-- Separate Zählung für Verkäufer und Käufer
-- Wöchentliche und Gesamt-Ranglisten
-- **Wichtig**: Mehrere Auktionen = Mehrere Punkte (2x 5er Stack = 2 Punkte)
+### Vorbereitung:
+1. **Stacks richtig vorbereiten**
+   - Beispiel: Du sollst 3x 5er Stacks Leinenstoff verkaufen
+   - Splitte deine Stacks VOR dem Trade auf genau 3x 5er Stacks
+   - Rechtsklick auf Stack → "Stack aufteilen" → 5 eingeben
 
-## Einschränkungen & Bekannte Probleme
+### Verkaufsprozess:
+1. **Trade mit Käufer öffnen** (Rechtsklick → Handeln)
+2. **Items werden automatisch eingefügt** (wenn Stack-Größe stimmt)
+3. **Trade Amount Fenster erscheint** - zeigt Gesamtpreis
+4. **Warten bis Käufer Gold eingibt**
+5. **Trade akzeptieren** ✓
 
-### Manuelle Aktionen erforderlich:
+### Wenn Items NICHT automatisch eingefügt werden:
+- Stack-Größe prüfen (muss exakt stimmen!)
+- `/checkauctions` eingeben um deine Auktionen zu sehen
+- Items manuell einfügen falls nötig
 
-#### 1. **Gold muss manuell eingegeben werden**
-- Der `/tm` Befehl wurde entfernt (Kompatibilitätsprobleme mit Classic API)
-- Käufer müssen den Goldbetrag manuell in die Trade-Felder eingeben
-- Der benötigte Betrag wird im Trade Amount Fenster angezeigt
+---
 
-#### 2. **Stacks müssen manuell getrennt werden**
-- Items müssen in der exakten Stack-Größe vorhanden sein
-- Beispiel: Für eine 5er Stack Auktion muss genau ein 5er Stack im Inventar sein
-- Ein 10er Stack muss erst manuell in 2x 5er geteilt werden
+## 💰 KAUFEN - Schritt für Schritt
 
-### Technische Einschränkungen:
+### Kaufprozess:
+1. **Trade mit Verkäufer öffnen** (Rechtsklick → Handeln)
+2. **Trade Amount Fenster zeigt dir:**
+   - Alle Items mit Einzelpreisen
+   - **GESAMTSUMME am Ende** ← Diesen Betrag brauchst du!
+3. **Gold MANUELL eingeben:**
+   - Rechtsklick auf Gold-Feld im Trade
+   - Betrag aus Trade Amount Fenster eingeben
+   - Format: [Gold] [Silber] [Kupfer]
+4. **Trade akzeptieren** ✓
 
-#### 1. **Maximum 6 Items pro Trade**
-- WoW Classic Limitation
-- Bei mehr als 6 Auktionen sind mehrere Trades nötig
+### Beispiel Gold eingeben:
+- Trade Amount zeigt: **Total: 15g 50s**
+- Du gibst ein: 15 Gold, 50 Silber
 
-#### 2. **Kein automatisches Gold-Setzen**
-- Classic API unterstützt kein programmatisches Setzen von Trade-Gold
-- `SetTradeMoney()` ist eine geschützte Funktion
+---
 
-#### 3. **TradeSkillMaster (TSM) Konflikt**
-- TSM verursacht Fehler mit `SetTradeMoney()`
-- Dies ist ein TSM-Problem, nicht ConcedeAH
-- Addon funktioniert trotz der Fehlermeldung
+## 🏆 Ranking System
+- Jede abgeschlossene Auktion = 1 Punkt
+- **Achtung:** 3x 5er Stacks = 3 Punkte (nicht 1 Punkt!)
+- Wöchentliche und Gesamt-Ranglisten verfügbar
 
-## Verwendung
+---
 
-### Als Verkäufer:
-1. Trade mit dem Käufer öffnen
-2. Items werden automatisch eingefügt (wenn richtige Stack-Größe vorhanden)
-3. Trade Amount Fenster zeigt erwarteten Goldbetrag
-4. Auf Gold vom Käufer warten und Trade akzeptieren
+## ❌ LIMITATIONEN - Das geht NICHT automatisch
 
-### Als Käufer:
-1. Trade mit dem Verkäufer öffnen
-2. Trade Amount Fenster zeigt alle Items mit Preisen
-3. **Manuell** den Goldbetrag eingeben (siehe Trade Amount Fenster)
-4. Trade akzeptieren
+### Manuell erforderlich:
+| Was | Warum | Lösung |
+|-----|-------|---------|
+| **Gold eingeben** | WoW Classic API Beschränkung | Käufer muss Betrag manuell eingeben |
+| **Stacks splitten** | Addon kann keine Stacks teilen | VOR Trade auf richtige Größe splitten |
+| **Mehr als 6 Items** | WoW Trade-Limit | Mehrere Trades durchführen |
 
-## Fehlerbehebung
+### Bekannte Probleme:
+- **TSM Addon**: Zeigt harmlose Fehlermeldungen → ignorieren, funktioniert trotzdem
+- **"Wrong stack size"**: Stack manuell auf benötigte Größe aufteilen
+- **"Trade window full"**: Maximal 6 Items → Trade abschließen, neu öffnen
 
-### "Wrong stack size" Fehler:
-- Stack manuell auf die benötigte Größe aufteilen
-- Rechtsklick auf Stack → "Stack aufteilen" → Gewünschte Menge eingeben
+---
 
-### "Trade window full" Fehler:
-- Maximal 6 Items pro Trade möglich
-- Trade abschließen und erneut handeln für weitere Items
+## 🛠️ Nützliche Befehle
 
-### Items werden nicht automatisch eingefügt:
-- Prüfen ob die exakte Stack-Größe vorhanden ist
-- `/checkauctions` verwenden um ausstehende Auktionen zu sehen
+| Befehl | Funktion |
+|--------|----------|
+| `/checkauctions` | Zeigt deine offenen Auktionen |
+| `/rankingdebug` | Zeigt aktuelle Ranking-Punkte |
+| `/rankingsync` | Synchronisiert Rankings mit Gilde |
 
-## Befehle
+---
 
-- `/checkauctions` - Zeigt alle deine ausstehenden Auktionen
-- `/testbuy <spielername>` - Erstellt eine Test-Auktion (nur für Tests)
-- `/rankingdebug` - Zeigt aktuelle Ranking-Daten
-- `/rankingsync` - Erzwingt Ranking-Synchronisation
+## 📋 Schnell-Checkliste
 
-## Support
+### Vor dem Verkauf:
+- [ ] Stacks auf richtige Größe gesplittet?
+- [ ] Nicht mehr als 6 Items?
+- [ ] Trade Amount Fenster zeigt korrekten Preis?
 
-Bei Problemen oder Fragen wenden Sie sich an die Gildenleitung oder den Addon-Entwickler.
+### Vor dem Kauf:
+- [ ] Genug Gold dabei?
+- [ ] Gesamtsumme im Trade Amount Fenster notiert?
+- [ ] Gold manuell eingegeben?
 
-## Version History
+---
 
-### Aktuelle Version
-- Multi-Item Trade Support
-- Itemisiertes Trade Amount Fenster
-- Verbesserte Stack-Handhabung
-- Ranking-System mit Käufer/Verkäufer-Trennung
+## ⚡ Häufige Fehler vermeiden
 
-### Bekannte Probleme
-- `/tm` Befehl funktioniert nicht in Classic
-- TSM Addon verursacht harmlose Fehlermeldungen
-- Gold muss manuell eingegeben werden
+1. **Fehler**: "Ich habe einen 20er Stack aber soll 4x 5er verkaufen"
+   - **Lösung**: ERST splitten in 4x 5er, DANN Trade öffnen
+
+2. **Fehler**: "Gold wird nicht automatisch gesetzt"
+   - **Lösung**: Normal! Käufer muss IMMER manuell eingeben
+
+3. **Fehler**: "Mehr als 6 Auktionen gleichzeitig"
+   - **Lösung**: Erste 6 traden, dann Rest in neuem Trade
+
+---
+
+## 🆘 Hilfe
+Bei Problemen wende dich an die Gildenleitung oder im Gildenchat fragen.
