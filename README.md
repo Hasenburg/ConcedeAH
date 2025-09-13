@@ -1,131 +1,131 @@
-# ConcedeAH - Benutzeranleitung
+# ConcedeAH - User Guide
 
-## Was ist ConcedeAH?
-Ein Auktionshaus-Addon für den gildeninternen Handel in World of Warcraft Classic.
+## What is ConcedeAH?
+An auction house addon for guild-internal trading in World of Warcraft Classic.
 
-## ⚠️ WICHTIGE HINWEISE VOR DEM START
+## ⚠️ IMPORTANT NOTES BEFORE STARTING
 
-### Das musst du IMMER manuell machen:
-1. **Gold selbst eingeben** - Das Addon kann kein Gold automatisch setzen
-2. **Stacks vorher splitten** - Items müssen in der exakten Größe im Inventar sein
-3. **Maximal 6 Items pro Trade** - Bei mehr Items mehrere Trades durchführen
+### You must ALWAYS do these manually:
+1. **Enter gold yourself** - The addon cannot set gold automatically
+2. **Split stacks beforehand** - Items must be in the exact size in your inventory
+3. **Maximum 6 items per trade** - For more items, perform multiple trades
 
-### Synchronisations-Einschränkung (WoW Classic Limitation):
-⚠️ **Auktionen und Rankings werden NUR an Spieler in derselben Zone übertragen!**
-- Neue Auktionen/Rankings erreichen nur Spieler in deiner Nähe
-- Spieler in anderen Zonen sehen Updates erst nach manuellem Sync
-- **Lösung:** Trefft euch in derselben Stadt (z.B. Orgrimmar/Stormwind) und nutzt `/reload` oder `/rankingsync`
-- Dies ist eine WoW Classic API Beschränkung des GUILD Channels
-
----
-
-## 📦 VERKAUFEN - Schritt für Schritt
-
-### Vorbereitung:
-1. **Stacks richtig vorbereiten**
-   - Beispiel: Du sollst 3x 5er Stacks Leinenstoff verkaufen
-   - Splitte deine Stacks VOR dem Trade auf genau 3x 5er Stacks
-   - Rechtsklick auf Stack → "Stack aufteilen" → 5 eingeben
-
-### Verkaufsprozess:
-1. **Trade mit Käufer öffnen** (Rechtsklick → Handeln)
-2. **Items werden automatisch eingefügt** (wenn Stack-Größe stimmt)
-3. **Trade Amount Fenster erscheint** - zeigt Gesamtpreis
-4. **Warten bis Käufer Gold eingibt**
-5. **Trade akzeptieren** ✓
-
-### Wenn Items NICHT automatisch eingefügt werden:
-- Stack-Größe prüfen (muss exakt stimmen!)
-- `/checkauctions` eingeben um deine Auktionen zu sehen
-- Items manuell einfügen falls nötig
+### Synchronization Limitation (WoW Classic Limitation):
+⚠️ **Auctions and rankings are ONLY transmitted to players in the same zone!**
+- New auctions/rankings only reach players in your vicinity
+- Players in other zones see updates only after manual sync
+- **Solution:** Meet in the same city (e.g., Orgrimmar/Stormwind) and use `/reload` or `/rankingsync`
+- This is a WoW Classic API limitation of the GUILD channel
 
 ---
 
-## 💰 KAUFEN - Schritt für Schritt
+## 📦 SELLING - Step by Step
 
-### Kaufprozess:
-1. **Trade mit Verkäufer öffnen** (Rechtsklick → Handeln)
-2. **Trade Amount Fenster zeigt dir:**
-   - Alle Items mit Einzelpreisen
-   - **GESAMTSUMME am Ende** ← Diesen Betrag brauchst du!
-3. **Gold MANUELL eingeben:**
-   - Rechtsklick auf Gold-Feld im Trade
-   - Betrag aus Trade Amount Fenster eingeben
-   - Format: [Gold] [Silber] [Kupfer]
-4. **Trade akzeptieren** ✓
+### Preparation:
+1. **Prepare stacks correctly**
+   - Example: You should sell 3x 5-stacks of Linen Cloth
+   - Split your stacks BEFORE the trade to exactly 3x 5-stacks
+   - Right-click on stack → "Split Stack" → Enter 5
 
-### Beispiel Gold eingeben:
-- Trade Amount zeigt: **Total: 15g 50s**
-- Du gibst ein: 15 Gold, 50 Silber
+### Selling Process:
+1. **Open trade with buyer** (Right-click → Trade)
+2. **Items are inserted automatically** (if stack size matches)
+3. **Trade Amount window appears** - shows total price
+4. **Wait for buyer to enter gold**
+5. **Accept trade** ✓
+
+### If items are NOT automatically inserted:
+- Check stack size (must match exactly!)
+- Type `/checkauctions` to see your auctions
+- Insert items manually if necessary
+
+---
+
+## 💰 BUYING - Step by Step
+
+### Buying Process:
+1. **Open trade with seller** (Right-click → Trade)
+2. **Trade Amount window shows you:**
+   - All items with individual prices
+   - **TOTAL at the end** ← This is the amount you need!
+3. **Enter gold MANUALLY:**
+   - Right-click on gold field in trade
+   - Enter amount from Trade Amount window
+   - Format: [Gold] [Silver] [Copper]
+4. **Accept trade** ✓
+
+### Example entering gold:
+- Trade Amount shows: **Total: 15g 50s**
+- You enter: 15 Gold, 50 Silver
 
 ---
 
 ## 🏆 Ranking System
-- Jede abgeschlossene Auktion = 1 Punkt
-- **Achtung:** 3x 5er Stacks = 3 Punkte (nicht 1 Punkt!)
-- Wöchentliche und Gesamt-Ranglisten verfügbar
+- Each completed auction = 1 point
+- **Note:** 3x 5-stacks = 3 points (not 1 point!)
+- Weekly and total rankings available
 
 ---
 
-## ❌ LIMITATIONEN - Das geht NICHT automatisch
+## ❌ LIMITATIONS - What does NOT work automatically
 
-### Manuell erforderlich:
-| Was | Warum | Lösung |
-|-----|-------|---------|
-| **Gold eingeben** | WoW Classic API Beschränkung | Käufer muss Betrag manuell eingeben |
-| **Stacks splitten** | Addon kann keine Stacks teilen | VOR Trade auf richtige Größe splitten |
-| **Mehr als 6 Items** | WoW Trade-Limit | Mehrere Trades durchführen |
-| **Zonenübergreifender Sync** | GUILD Channel Reichweiten-Limit | In gleicher Zone treffen für Sync |
+### Manual actions required:
+| What | Why | Solution |
+|------|-----|----------|
+| **Enter gold** | WoW Classic API limitation | Buyer must enter amount manually |
+| **Split stacks** | Addon cannot split stacks | Split to correct size BEFORE trade |
+| **More than 6 items** | WoW trade limit | Perform multiple trades |
+| **Cross-zone sync** | GUILD channel range limit | Meet in same zone for sync |
 
-### Bekannte Probleme:
-- **TSM Addon**: Zeigt harmlose Fehlermeldungen → ignorieren, funktioniert trotzdem
-- **"Wrong stack size"**: Stack manuell auf benötigte Größe aufteilen
-- **"Trade window full"**: Maximal 6 Items → Trade abschließen, neu öffnen
-
----
-
-## 🛠️ Nützliche Befehle
-
-| Befehl | Funktion |
-|--------|----------|
-| `/checkauctions` | Zeigt deine offenen Auktionen |
-| `/rankingdebug` | Zeigt aktuelle Ranking-Punkte |
-| `/rankingsync` | Synchronisiert Rankings mit Gilde |
+### Known Issues:
+- **TSM Addon**: Shows harmless error messages → ignore, still works
+- **"Wrong stack size"**: Split stack manually to required size
+- **"Trade window full"**: Maximum 6 items → Complete trade, open new one
 
 ---
 
-## 📋 Schnell-Checkliste
+## 🛠️ Useful Commands
 
-### Vor dem Verkauf:
-- [ ] Stacks auf richtige Größe gesplittet?
-- [ ] Nicht mehr als 6 Items?
-- [ ] Trade Amount Fenster zeigt korrekten Preis?
-
-### Vor dem Kauf:
-- [ ] Genug Gold dabei?
-- [ ] Gesamtsumme im Trade Amount Fenster notiert?
-- [ ] Gold manuell eingegeben?
+| Command | Function |
+|---------|----------|
+| `/checkauctions` | Shows your open auctions |
+| `/rankingdebug` | Shows current ranking points |
+| `/rankingsync` | Synchronizes rankings with guild |
 
 ---
 
-## ⚡ Häufige Fehler vermeiden
+## 📋 Quick Checklist
 
-1. **Fehler**: "Ich habe einen 20er Stack aber soll 4x 5er verkaufen"
-   - **Lösung**: ERST splitten in 4x 5er, DANN Trade öffnen
+### Before selling:
+- [ ] Stacks split to correct size?
+- [ ] Not more than 6 items?
+- [ ] Trade Amount window shows correct price?
 
-2. **Fehler**: "Gold wird nicht automatisch gesetzt"
-   - **Lösung**: Normal! Käufer muss IMMER manuell eingeben
-
-3. **Fehler**: "Mehr als 6 Auktionen gleichzeitig"
-   - **Lösung**: Erste 6 traden, dann Rest in neuem Trade
-
-4. **Fehler**: "Andere Spieler sehen meine Auktionen nicht"
-   - **Lösung**: Ihr seid in verschiedenen Zonen! Trefft euch in derselben Stadt
-
-5. **Fehler**: "Rankings sind nicht aktuell"
-   - **Lösung**: `/rankingsync` in derselben Zone wie andere Gildenmitglieder ausführen
+### Before buying:
+- [ ] Enough gold available?
+- [ ] Total from Trade Amount window noted?
+- [ ] Gold entered manually?
 
 ---
 
-## 🆘 Hilfe
-Bei Problemen wende dich an die Gildenleitung oder im Gildenchat fragen.
+## ⚡ Common Mistakes to Avoid
+
+1. **Error**: "I have a 20-stack but should sell 4x 5-stacks"
+   - **Solution**: FIRST split into 4x 5-stacks, THEN open trade
+
+2. **Error**: "Gold is not set automatically"
+   - **Solution**: Normal! Buyer must ALWAYS enter manually
+
+3. **Error**: "More than 6 auctions simultaneously"
+   - **Solution**: Trade first 6, then rest in new trade
+
+4. **Error**: "Other players don't see my auctions"
+   - **Solution**: You're in different zones! Meet in the same city
+
+5. **Error**: "Rankings are not up to date"
+   - **Solution**: Execute `/rankingsync` in the same zone as other guild members
+
+---
+
+## 🆘 Help
+For problems, contact guild leadership or ask in guild chat.
