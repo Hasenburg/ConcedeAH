@@ -10,6 +10,13 @@ Ein Auktionshaus-Addon für den gildeninternen Handel in World of Warcraft Class
 2. **Stacks vorher splitten** - Items müssen in der exakten Größe im Inventar sein
 3. **Maximal 6 Items pro Trade** - Bei mehr Items mehrere Trades durchführen
 
+### Synchronisations-Einschränkung (WoW Classic Limitation):
+⚠️ **Auktionen und Rankings werden NUR an Spieler in derselben Zone übertragen!**
+- Neue Auktionen/Rankings erreichen nur Spieler in deiner Nähe
+- Spieler in anderen Zonen sehen Updates erst nach manuellem Sync
+- **Lösung:** Trefft euch in derselben Stadt (z.B. Orgrimmar/Stormwind) und nutzt `/reload` oder `/rankingsync`
+- Dies ist eine WoW Classic API Beschränkung des GUILD Channels
+
 ---
 
 ## 📦 VERKAUFEN - Schritt für Schritt
@@ -68,6 +75,7 @@ Ein Auktionshaus-Addon für den gildeninternen Handel in World of Warcraft Class
 | **Gold eingeben** | WoW Classic API Beschränkung | Käufer muss Betrag manuell eingeben |
 | **Stacks splitten** | Addon kann keine Stacks teilen | VOR Trade auf richtige Größe splitten |
 | **Mehr als 6 Items** | WoW Trade-Limit | Mehrere Trades durchführen |
+| **Zonenübergreifender Sync** | GUILD Channel Reichweiten-Limit | In gleicher Zone treffen für Sync |
 
 ### Bekannte Probleme:
 - **TSM Addon**: Zeigt harmlose Fehlermeldungen → ignorieren, funktioniert trotzdem
@@ -110,6 +118,12 @@ Ein Auktionshaus-Addon für den gildeninternen Handel in World of Warcraft Class
 
 3. **Fehler**: "Mehr als 6 Auktionen gleichzeitig"
    - **Lösung**: Erste 6 traden, dann Rest in neuem Trade
+
+4. **Fehler**: "Andere Spieler sehen meine Auktionen nicht"
+   - **Lösung**: Ihr seid in verschiedenen Zonen! Trefft euch in derselben Stadt
+
+5. **Fehler**: "Rankings sind nicht aktuell"
+   - **Lösung**: `/rankingsync` in derselben Zone wie andere Gildenmitglieder ausführen
 
 ---
 
