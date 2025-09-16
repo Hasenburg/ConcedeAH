@@ -232,19 +232,74 @@ function AuctionHouse:OnInitialize()
     SLASH_GAH1 = "/gah"
     SlashCmdList["GAH"] = function(msg) self:OpenAuctionHouse() end
     
+    -- Debug command to check database
+    SLASH_GAHDB1 = "/gahdb"
+    SlashCmdList["GAHDB"] = function(msg)
+        local totalAuctions = 0
+        local activeAuctions = 0
+        local pendingTradeAuctions = 0
+        local pendingLoanAuctions = 0
+        local sentCodAuctions = 0
+        local sentLoanAuctions = 0
+        local completedAuctions = 0
+        local otherAuctions = 0
+        local nilStatusAuctions = 0
+        
+        for id, auction in pairs(self.db.auctions) do
+            totalAuctions = totalAuctions + 1
+            if not auction.status then
+                nilStatusAuctions = nilStatusAuctions + 1
+            elseif auction.status == ns.AUCTION_STATUS_ACTIVE then
+                activeAuctions = activeAuctions + 1
+            elseif auction.status == ns.AUCTION_STATUS_PENDING_TRADE then
+                pendingTradeAuctions = pendingTradeAuctions + 1
+            elseif auction.status == ns.AUCTION_STATUS_PENDING_LOAN then
+                pendingLoanAuctions = pendingLoanAuctions + 1
+            elseif auction.status == ns.AUCTION_STATUS_SENT_COD then
+                sentCodAuctions = sentCodAuctions + 1
+            elseif auction.status == ns.AUCTION_STATUS_SENT_LOAN then
+                sentLoanAuctions = sentLoanAuctions + 1
+            elseif auction.status == ns.AUCTION_STATUS_COMPLETED then
+                completedAuctions = completedAuctions + 1
+            else
+                otherAuctions = otherAuctions + 1
+                print("  Unknown status: " .. tostring(auction.status) .. " for auction " .. tostring(id))
+            end
+        end
+        
+        print(ChatPrefix() .. " Database contains:")
+        print("  Total auctions: " .. totalAuctions)
+        print("  Active: " .. activeAuctions)
+        print("  Pending Trade: " .. pendingTradeAuctions)
+        print("  Pending Loan: " .. pendingLoanAuctions)
+        print("  Sent COD: " .. sentCodAuctions) 
+        print("  Sent Loan: " .. sentLoanAuctions)
+        print("  Completed: " .. completedAuctions)
+        print("  Nil status: " .. nilStatusAuctions)
+        print("  Other status: " .. otherAuctions)
+        print("  DB Revision: " .. (self.db.revision or 0))
+    end
+    
     -- Manual sync command
     SLASH_GAHSYNC1 = "/gahsync"
     SlashCmdList["GAHSYNC"] = function(msg)
         print(ChatPrefix() .. " Requesting full auction sync from guild...")
+        print(ChatPrefix() .. " Broadcasting sync request to all guild members...")
+        
         -- Reset the received flags to allow re-syncing
         self.receivedAuctionState = false
         self.receivedTradeState = false
+        
+        -- Reset sync window to allow receiving new data
+        self.initAt = GetTime() - 290  -- Set init time to 10 seconds ago to open sync window
         
         -- Broadcast that we need a full sync - same as a new player
         self:BroadcastMessage(self:Serialize({ "PLAYER_NEEDS_SYNC", { 
             player = UnitName("player"),
             revision = 0  -- Force full sync by claiming revision 0
         }}))
+        
+        print(ChatPrefix() .. " Sync request sent. Waiting for responses...")
         
         -- Also do the regular sync request
         self:RequestLatestState()
@@ -328,7 +383,18 @@ function AuctionHouse:BroadcastMessage(message)
 end
 
 function AuctionHouse:SendDm(message, recipient, prio)
-    self:SendCommMessage(COMM_PREFIX, message, "WHISPER", string.format("%s-%s", recipient, GetRealmName()), prio)
+    -- Check if recipient already has realm name
+    local target
+    if string.find(recipient, "-") then
+        -- Recipient already has realm, use as-is
+        target = recipient
+    else
+        -- Add current realm to recipient
+        target = string.format("%s-%s", recipient, GetRealmName())
+    end
+    
+    print(ChatPrefix() .. string.format(" DEBUG: Sending DM to %s (prio: %s, size: %d bytes)", target, prio or "normal", #message))
+    self:SendCommMessage(COMM_PREFIX, message, "WHISPER", target, prio)
 end
 
 function AuctionHouse:BroadcastAuctionUpdate(dataType, payload)
@@ -373,10 +439,30 @@ local function IsGuildMember(name)
 end
 
 function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
+    -- Extract sender name without realm if present
+    local senderName = sender
+    if string.find(sender, "-") then
+        senderName = string.match(sender, "([^-]+)")
+    end
+    
+    -- Debug: Log all incoming messages
+    if prefix == COMM_PREFIX then
+        local success, data = self:Deserialize(message)
+        if success then
+            local dataType = data[1]
+            if dataType == T_AUCTION_STATE then
+                print(ChatPrefix() .. string.format(" DEBUG: Received T_AUCTION_STATE from %s (full: %s) via %s", senderName, sender, distribution))
+            elseif dataType == "PLAYER_NEEDS_SYNC" then
+                print(ChatPrefix() .. string.format(" DEBUG: Received PLAYER_NEEDS_SYNC from %s (full: %s) via %s", senderName, sender, distribution))
+            end
+        end
+    end
+    
     -- disallow whisper messages from outside the guild to avoid bad actors to inject malicious data
     -- this means that early on during login we might discard messages from guild members until the guild roaster is known.
     -- however, since we sync the state with the guild roaster on login this shouldn't be a problem.
-    if distribution == W and not IsGuildMember(sender) then
+    if distribution == W and not IsGuildMember(senderName) then
+        print(ChatPrefix() .. string.format(" DEBUG: Blocked whisper from non-guild member %s (full: %s)", senderName, sender))
         return
     end
 
@@ -392,16 +478,17 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
     if not success then
         return
     end
-    if sender == UnitName("player") and not self.ignoreSenderCheck then
+    -- Check if sender is self (use senderName without realm)
+    if senderName == UnitName("player") and not self.ignoreSenderCheck then
         return
     end
 
     local dataType = data[1]
     local payload = data[2]
 
-    ns.DebugLog("[DEBUG] recv", dataType, sender)
-    if not isMessageAllowed(sender, distribution, dataType) then
-        ns.DebugLog("[DEBUG] Ignoring message from", sender, "of type", dataType, "in channel", distribution)
+    ns.DebugLog("[DEBUG] recv", dataType, senderName)
+    if not isMessageAllowed(senderName, distribution, dataType) then
+        ns.DebugLog("[DEBUG] Ignoring message from", senderName, "of type", dataType, "in channel", distribution)
         return
     end
 
@@ -446,18 +533,21 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         local compressTime = (GetTimePreciseSec() - compressStart) * 1000
 
         ns.DebugLog(string.format("[DEBUG] Sending delta state to %s: %d auctions, %d deleted IDs, rev %d (bytes-compressed: %d, serialize: %.0fms, compress: %.0fms)",
-                sender, auctionCount, deletedCount, self.db.revision,
+                senderName, auctionCount, deletedCount, self.db.revision,
                 #compressed,
                 serializeTime, compressTime
         ))
 
         -- Send the delta state back to the requester
-        self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), sender, "BULK")
+        self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), senderName, "BULK")
 
     elseif dataType == T_AUCTION_STATE then
+        print(ChatPrefix() .. " Receiving auction state from " .. (senderName or "unknown"))
+        
         -- Allow receiving auction state multiple times during the sync window
         -- This is important when multiple players send their data
         if self:IsSyncWindowExpired() and self.receivedAuctionState then
+            print(ChatPrefix() .. " Ignoring auction state - sync window expired")
             ns.DebugLog("ignoring T_AUCTION_STATE - sync window expired")
             return
         end
@@ -468,12 +558,18 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         local decompressStart = GetTimePreciseSec()
         local decompressed = LibDeflate:DecompressDeflate(payload)
         local decompressTime = (GetTimePreciseSec() - decompressStart) * 1000
+        
+        if not decompressed then
+            print(ChatPrefix() .. " ERROR: Failed to decompress auction data")
+            return
+        end
 
         local deserializeStart = GetTimePreciseSec()
         local success, state = self:Deserialize(decompressed)
         local deserializeTime = (GetTimePreciseSec() - deserializeStart) * 1000
 
         if not success then
+            print(ChatPrefix() .. " ERROR: Failed to deserialize auction data")
             return
         end
 
@@ -482,25 +578,32 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         local auctionsReceived = 0
         local auctionsUpdated = 0
         local auctionsNew = 0
+        local auctionsSkipped = 0
+        
+        -- Count total auctions in the received state
+        for _ in pairs(state.auctions or {}) do
+            auctionsReceived = auctionsReceived + 1
+        end
+        
+        print(ChatPrefix() .. string.format(" Processing %d auctions from sync...", auctionsReceived))
         
         -- Always process auctions during the sync window or if sender has higher revision
         if not self:IsSyncWindowExpired() or state.revision > self.db.revision then
             -- Update local auctions with received data
             for id, auction in pairs(state.auctions or {}) do
-                auctionsReceived = auctionsReceived + 1
                 local oldAuction = self.db.auctions[id]
                 
                 -- Only update if we don't have it or the received one is newer
-                if not oldAuction or (auction.rev and oldAuction.rev and auction.rev > oldAuction.rev) then
+                if not oldAuction then
+                    -- Brand new auction, always add it
                     self.db.auctions[id] = auction
-                    
-                    if not oldAuction then
-                        auctionsNew = auctionsNew + 1
-                        -- New auction
-                        API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction, source = "create"})
-                    else
-                        auctionsUpdated = auctionsUpdated + 1
-                        if oldAuction.status ~= auction.status then
+                    auctionsNew = auctionsNew + 1
+                    API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction, source = "create"})
+                elseif not oldAuction.rev or not auction.rev or auction.rev > oldAuction.rev then
+                    -- Update if revision is higher or if revision is missing
+                    self.db.auctions[id] = auction
+                    auctionsUpdated = auctionsUpdated + 1
+                    if oldAuction.status ~= auction.status then
                             -- status change event
                             local source = "status_update"
                             if auction.status == ns.AUCTION_STATUS_PENDING_TRADE then
@@ -513,7 +616,11 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
                             -- unknown update reason (source)
                             API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction})
                         end
-                    end
+                else
+                    -- Auction was skipped (already have newer version)
+                    auctionsSkipped = auctionsSkipped + 1
+                    ns.DebugLog(string.format("[DEBUG] Skipped auction %s (old rev: %s, new rev: %s)", 
+                        id, tostring(oldAuction and oldAuction.rev), tostring(auction.rev)))
                 end
             end
 
@@ -532,8 +639,8 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
 
             -- Show what was received to help debug
             if auctionsReceived > 0 then
-                print(ChatPrefix() .. string.format(" Received %d auctions (%d new, %d updated)", 
-                    auctionsReceived, auctionsNew, auctionsUpdated))
+                print(ChatPrefix() .. string.format(" Received %d auctions: %d new, %d updated, %d skipped", 
+                    auctionsReceived, auctionsNew, auctionsUpdated, auctionsSkipped))
             end
             
             ns.DebugLog(string.format("[DEBUG] Processed auction state: %d received, %d new, %d updated, %d deleted, revision %d",
@@ -547,7 +654,7 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
 
     elseif dataType == T_CONFIG_REQUEST then
         if payload.version < AHConfigSaved.version then
-            self:SendDm(self:Serialize({ T_CONFIG_CHANGED, AHConfigSaved }), sender, "BULK")
+            self:SendDm(self:Serialize({ T_CONFIG_CHANGED, AHConfigSaved }), senderName, "BULK")
         end
     elseif dataType == T_CONFIG_CHANGED then
         if payload.version > AHConfigSaved.version then
@@ -566,11 +673,11 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         local compressTime = (GetTimePreciseSec() - compressStart) * 1000
 
         ns.DebugLog(string.format("[DEBUG] Sending delta trades to %s: %d trades, %d deleted IDs, revTrades %d (compressed bytes: %d, serialize: %.0fms, compress: %.0fms)",
-            sender, tradeCount, deletedCount, self.db.revTrades,
+            senderName, tradeCount, deletedCount, self.db.revTrades,
             #compressed, serializeTime, compressTime
         ))
 
-        self:SendDm(self:Serialize({ ns.T_TRADE_STATE, compressed }), sender, "BULK")
+        self:SendDm(self:Serialize({ ns.T_TRADE_STATE, compressed }), senderName, "BULK")
 
     elseif dataType == ns.T_TRADE_STATE then
         if self:IsSyncWindowExpired() and self.receivedTradeState then
@@ -636,10 +743,10 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         local compressed = LibDeflate:CompressDeflate(serialized)
 
         ns.DebugLog(string.format("[DEBUG] Sending delta ratings to %s: %d ratings, %d deleted IDs, revision %d (compressed: %db, uncompressed: %db)",
-            sender, ratingCount, deletedCount, self.db.revRatings, #compressed, #serialized))
+            senderName, ratingCount, deletedCount, self.db.revRatings, #compressed, #serialized))
 
         -- Send the delta state back to the requester
-        self:SendDm(self:Serialize({ ns.T_RATING_STATE, compressed }), sender, "BULK")
+        self:SendDm(self:Serialize({ ns.T_RATING_STATE, compressed }), senderName, "BULK")
 
     elseif dataType == ns.T_RATING_STATE then
         if self:IsSyncWindowExpired() and self.receivedRatingState then
@@ -682,17 +789,17 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
     -- Ranking events
     elseif dataType == T_RANKING_UPDATE then
         if ns.RankingSync then
-            ns.RankingSync:OnRankingUpdate(self:Serialize(data), sender)
+            ns.RankingSync:OnRankingUpdate(self:Serialize(data), senderName)
         end
     
     elseif dataType == T_RANKING_STATE_REQUEST then
         if ns.RankingSync then
-            ns.RankingSync:OnRankingStateRequest(sender)
+            ns.RankingSync:OnRankingStateRequest(senderName)
         end
     
     elseif dataType == T_RANKING_STATE then
         if ns.RankingSync then
-            ns.RankingSync:OnRankingState(self:Serialize(data), sender)
+            ns.RankingSync:OnRankingState(self:Serialize(data), senderName)
         end
     
     elseif dataType == ns.T_ADDON_VERSION_REQUEST then
@@ -703,7 +810,7 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
             if ns.ChangeLog[latestVersion] then
                 payload.changeLog = ns.ChangeLog[latestVersion]
             end
-            self:SendDm(self:Serialize({ ns.T_ADDON_VERSION_RESPONSE, payload  }), sender, "BULK")
+            self:SendDm(self:Serialize({ ns.T_ADDON_VERSION_RESPONSE, payload  }), senderName, "BULK")
         end
     elseif dataType == ns.T_ADDON_VERSION_RESPONSE then
         ns.DebugLog("[DEBUG] new addon version available", payload.version)
@@ -745,10 +852,10 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
 
         ns.DebugLog(string.format(
             "[DEBUG] Sending delta blacklists to %s: %d changed, %d deleted, revBlacklists %d (bytes: %d, serialize: %.0fms, compress: %.0fms)",
-            sender, blCount, deletedCount, self.db.revBlacklists, #compressed, serializeTime, compressTime
+            senderName, blCount, deletedCount, self.db.revBlacklists, #compressed, serializeTime, compressTime
         ))
 
-        self:SendDm(self:Serialize({ ns.T_BLACKLIST_STATE, compressed }), sender, "BULK")
+        self:SendDm(self:Serialize({ ns.T_BLACKLIST_STATE, compressed }), senderName, "BULK")
 
     elseif dataType == ns.T_BLACKLIST_STATE then
         if self:IsSyncWindowExpired() and self.receivedBlacklistState then
@@ -804,6 +911,7 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
     elseif dataType == "PLAYER_NEEDS_SYNC" then
         -- A new player logged in and needs auction data
         -- Every online player should send their auction data to help sync
+        print(ChatPrefix() .. string.format(" Received sync request from %s", payload.player or "unknown"))
         if payload.player ~= UnitName("player") then
             -- Don't respond to our own sync request
             C_Timer.After(math.random() * 2 + 0.5, function()
@@ -822,13 +930,16 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
                     local serialized = self:Serialize(responsePayload)
                     local compressed = LibDeflate:CompressDeflate(serialized)
                     
+                    print(ChatPrefix() .. string.format(" Preparing to send %d auctions to %s (compressed: %d bytes)", 
+                        auctionCount, payload.player, #compressed))
+                    
                     -- Send directly to the requesting player
                     self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), payload.player, "BULK")
                     
                     print(ChatPrefix() .. string.format(" Sharing %d/%d auctions with %s", 
                         auctionCount, totalInDB, payload.player))
-                    ns.DebugLog(string.format("[DEBUG] Sent %d of %d total auctions to new player %s", 
-                        auctionCount, totalInDB, payload.player))
+                    ns.DebugLog(string.format("[DEBUG] Sent %d of %d total auctions to new player %s (compressed: %d bytes)", 
+                        auctionCount, totalInDB, payload.player, #compressed))
                 else
                     ns.DebugLog(string.format("[DEBUG] No auctions to send to %s (total in DB: %d)", 
                         payload.player, totalInDB))
@@ -875,6 +986,8 @@ function AuctionHouse:BuildDeltaState(requesterRevision, requesterAuctions)
                         id, auction.status or "nil"))
                 end
             end
+            print(ChatPrefix() .. string.format(" BuildDeltaState: Preparing %d/%d auctions (skipped %d completed)", 
+                auctionCount, totalAuctions, skippedAuctions))
             ns.DebugLog(string.format("[DEBUG] BuildDeltaState: Sending ALL auctions - %d active, %d skipped (completed/expired), %d total",
                 auctionCount, skippedAuctions, totalAuctions))
         else
@@ -898,13 +1011,26 @@ function AuctionHouse:BuildDeltaState(requesterRevision, requesterAuctions)
     end
 
     -- Construct the response payload
-    return {
+    local payload = {
         v = 1,
         auctions = auctionsToSend,
         deletedAuctionIds = deletedAuctionIds,
         revision = self.db.revision,
         lastUpdateAt = self.db.lastUpdateAt,
-    }, auctionCount, deletionCount
+    }
+    
+    -- Debug: Count auctions in payload
+    local payloadCount = 0
+    for _ in pairs(payload.auctions or {}) do
+        payloadCount = payloadCount + 1
+    end
+    
+    if payloadCount ~= auctionCount then
+        print(ChatPrefix() .. string.format(" WARNING: Payload count mismatch! Expected %d, got %d", 
+            auctionCount, payloadCount))
+    end
+    
+    return payload, auctionCount, deletionCount
 end
 
 function AuctionHouse:BuildTradeDeltaState(requesterRevision, requesterTrades)

@@ -1819,9 +1819,9 @@ function OFAuctionFrameBrowse_Update()
     else
         -- For Marketplace, we want to see ALL offers including our own
         if OFAuctionFrameBrowse.showOnlyOffers then
-            -- Get ALL auctions without the owner filter
+            -- Get ALL non-completed auctions (show active, pending, sent, etc.)
             local allAuctions = ns.AuctionHouseAPI:QueryAuctions(function(item) 
-                return item.status == ns.AUCTION_STATUS_ACTIVE 
+                return item.status and item.status ~= ns.AUCTION_STATUS_COMPLETED
             end)
             auctions = allAuctions or {}
         else

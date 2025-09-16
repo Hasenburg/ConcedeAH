@@ -75,9 +75,9 @@ function OFAuctionFrameMarketplace_Update()
     local hideMyOffers = OFAuctionFrameMarketplace.hideMyOffers or false
     local myName = UnitName("player")
     
-    -- Filter only offers (not requests) and apply search/hide filters
+    -- Filter only offers (not requests) that are not completed, and apply search/hide filters
     for _, auction in ipairs(allAuctions) do
-        if not auction.isRequest then
+        if not auction.isRequest and auction.status and auction.status ~= ns.AUCTION_STATUS_COMPLETED then
             local shouldShow = true
             
             -- Hide my offers if checkbox is checked
