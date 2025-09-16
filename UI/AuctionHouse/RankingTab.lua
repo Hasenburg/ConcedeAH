@@ -58,55 +58,35 @@ function OFAuctionFrameRanking_OnLoad(self)
     SLASH_RANKINGBROADCAST1 = "/rankingbroadcast"
     
     SlashCmdList["RANKINGSYNC"] = function()
-        print("|cFFFFFF00[Ranking]|r Forcing sync request...")
+        -- Forcing sync request
         if ns.RankingSync then
             ns.RankingSync:RequestRankingState()
         end
     end
     
     SlashCmdList["RANKINGBROADCAST"] = function()
-        print("|cFFFFFF00[Ranking]|r Broadcasting full ranking state to guild...")
+        -- Broadcasting full ranking state to guild
         if ns.RankingSync then
             ns.RankingSync:BroadcastFullRankingState()
         else
-            print("|cFFFF0000[Ranking]|r RankingSync module not available")
+            -- RankingSync module not available
         end
     end
     
-    SlashCmdList["RANKINGDEBUG"] = function()
-        OFAuctionFrameRanking_InitializeData()
-        print("|cFFFFFF00[Ranking Debug]|r Current Rankings:")
-        print("  Week Start: " .. (OFRankingData.weekStartTime or 0))
-        print("  Current Week Sales:")
-        for name, points in pairs(OFRankingData.currentWeek.sellers or {}) do
-            print("    " .. name .. ": " .. points .. " sales")
-        end
-        print("  Current Week Purchases:")
-        for name, points in pairs(OFRankingData.currentWeek.buyers or {}) do
-            print("    " .. name .. ": " .. points .. " purchases")
-        end
-        print("  All Time Sales:")
-        for name, points in pairs(OFRankingData.allTime.sellers or {}) do
-            print("    " .. name .. ": " .. points .. " sales")
-        end
-        print("  All Time Purchases:")
-        for name, points in pairs(OFRankingData.allTime.buyers or {}) do
-            print("    " .. name .. ": " .. points .. " purchases")
-        end
-    end
+    -- Debug command removed
     
     SlashCmdList["RANKINGUPDATE"] = function()
-        print("|cFFFFFF00[Ranking]|r Forcing UI update...")
+        -- Forcing UI update
         if OFAuctionFrameRanking then
             -- Force show the frame to test
             if not OFAuctionFrameRanking:IsShown() then
-                print("|cFFFFFF00[Ranking]|r Frame was hidden, showing it now")
+                -- Frame was hidden, showing it now
                 OFAuctionFrameRanking:Show()
             end
             OFAuctionFrameRanking_UpdateList()
-            print("|cFF00FF00[Ranking]|r UpdateList called successfully")
+            -- UpdateList called successfully
         else
-            print("|cFFFF0000[Ranking]|r OFAuctionFrameRanking not found!")
+            -- OFAuctionFrameRanking not found
         end
     end
     

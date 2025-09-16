@@ -10,7 +10,7 @@ function RankingSync:Initialize()
     -- Store reference to AuctionHouse
     self.AuctionHouse = ns.AuctionHouse
     
-    print("|cFF00FF00[Ranking Sync]|r Initialized - Will sync in 5 seconds")
+    -- Sync initialization (removed print)
     
     -- First broadcast our own data, then request from others
     C_Timer.After(5, function()
@@ -35,12 +35,12 @@ function RankingSync:BroadcastRankingReset()
     }
     
     self.AuctionHouse:BroadcastRankingUpdate(ns.T_RANKING_UPDATE, payload)
-    print("|cFF00FF00[Admin Ranking Sync]|r Broadcasting ranking reset to guild")
+    -- Broadcasting ranking reset to guild
 end
 
 function RankingSync:BroadcastRankingUpdate(contributor, type, points)
     if not self.AuctionHouse then 
-        print("|cFFFF0000[Ranking Sync ERROR]|r AuctionHouse not available!")
+        -- AuctionHouse not available error
         return 
     end
     
@@ -55,25 +55,25 @@ function RankingSync:BroadcastRankingUpdate(contributor, type, points)
     -- Use the AuctionHouse broadcast system
     self.AuctionHouse:BroadcastRankingUpdate(ns.T_RANKING_UPDATE, payload)
     
-    print("|cFF00FF00[Ranking Sync]|r Broadcasting update: " .. contributor .. " = " .. points .. " " .. type .. " points (week: " .. OFRankingData.weekStartTime .. ")")
+    -- Broadcasting update for contributor
 end
 
 function RankingSync:OnRankingUpdate(message, sender)
     local success, data = self.AuctionHouse:Deserialize(message)
     if not success then 
-        print("|cFFFF0000[Ranking Sync ERROR]|r Failed to deserialize message from " .. sender)
+        -- Failed to deserialize message
         return 
     end
     
     local _, payload = unpack(data)
     if not payload then 
-        print("|cFFFF0000[Ranking Sync ERROR]|r Invalid payload from " .. sender)
+        -- Invalid payload received
         return 
     end
     
     -- Check if this is a reset command from admin
     if payload.action == "reset" then
-        print("|cFFFF0000[Admin Ranking Sync]|r Received ranking reset from admin: " .. (payload.admin or "unknown"))
+        -- Received ranking reset from admin
         OFRankingData = {
             currentWeek = {sellers = {}, buyers = {}},
             historicalWeeks = {},
@@ -88,12 +88,12 @@ function RankingSync:OnRankingUpdate(message, sender)
     end
     
     if not payload.contributor then 
-        print("|cFFFF0000[Ranking Sync ERROR]|r Missing contributor in payload from " .. sender)
+        -- Missing contributor in payload
         return 
     end
     
     local pointType = payload.type or "seller"  -- Default to seller for compatibility
-    print("|cFF00FFFF[Ranking Sync]|r Received update from " .. sender .. ": " .. payload.contributor .. " = " .. payload.points .. " " .. pointType .. " points (week: " .. payload.weekStartTime .. ")")
+    -- Received update from sender
     
     -- Initialize if needed
     if not OFRankingData then
@@ -130,24 +130,24 @@ function RankingSync:OnRankingUpdate(message, sender)
             -- Update all time
             allTimeTable[payload.contributor] = (allTimeTable[payload.contributor] or 0) + difference
             
-            print("|cFF00FFFF[Ranking Sync]|r Updated " .. payload.contributor .. " to " .. payload.points .. " " .. pointType .. " points this week, " .. allTimeTable[payload.contributor] .. " total")
+            -- Updated contributor points
             
             -- Update UI if visible
             if OFAuctionFrameRanking and OFAuctionFrameRanking:IsShown() then
                 OFAuctionFrameRanking_UpdateList()
             end
         else
-            print("|cFFFFFF00[Ranking Sync]|r Ignoring update - already have " .. currentPoints .. " " .. pointType .. " points for " .. payload.contributor)
+            -- Ignoring update - already have current points
         end
     else
-        print("|cFFFFFF00[Ranking Sync]|r Ignoring update - different week (current: " .. OFRankingData.weekStartTime .. ", received: " .. payload.weekStartTime .. ")")
+        -- Ignoring update - different week
     end
 end
 
 function RankingSync:RequestRankingState()
     if not self.AuctionHouse then return end
     
-    print("|cFFFFFF00[Ranking Sync]|r Requesting ranking state from guild...")
+    -- Requesting ranking state from guild
     self.AuctionHouse:BroadcastRankingUpdate(ns.T_RANKING_STATE_REQUEST, {})
 end
 
@@ -168,7 +168,7 @@ function RankingSync:BroadcastFullRankingState()
     end
     
     if sellerCount == 0 and buyerCount == 0 then
-        print("|cFFFFFF00[Ranking Sync]|r No ranking data to broadcast")
+        -- No ranking data to broadcast
         return
     end
     
@@ -196,13 +196,12 @@ function RankingSync:BroadcastFullRankingState()
         self.AuctionHouse:BroadcastRankingUpdate(ns.T_RANKING_UPDATE, payload)
     end
     
-    print(string.format("|cFF00FF00[Ranking Sync]|r Broadcasted full ranking state: %d sellers, %d buyers", 
-        sellerCount, buyerCount))
+    -- Broadcasted full ranking state
 end
 
 function RankingSync:OnRankingStateRequest(sender)
     if not self.AuctionHouse then 
-        print("|cFFFF0000[Ranking Sync]|r Cannot send state - AuctionHouse not available")
+        -- Cannot send state - AuctionHouse not available
         return 
     end
     
@@ -233,8 +232,7 @@ function RankingSync:OnRankingStateRequest(sender)
         weekStartTime = OFRankingData.weekStartTime
     }
     
-    print(string.format("|cFFFFFF00[Ranking Sync]|r Sending ranking state to %s (%d sellers, %d buyers)", 
-        sender, sellerCount, buyerCount))
+    -- Sending ranking state to sender
     self.AuctionHouse:SendDm(self.AuctionHouse:Serialize({ns.T_RANKING_STATE, payload}), sender)
 end
 
@@ -261,8 +259,7 @@ function RankingSync:OnRankingState(message, sender)
         end
     end
     
-    print(string.format("|cFF00FF00[Ranking Sync]|r Received ranking state from %s (%d sellers, %d buyers)", 
-        sender, receivedSellers, receivedBuyers))
+    -- Received ranking state from sender
     
     -- Initialize if needed
     if not OFRankingData then
@@ -350,8 +347,7 @@ function RankingSync:OnRankingState(message, sender)
         finalBuyers = finalBuyers + 1
     end
     
-    print(string.format("|cFF00FF00[Ranking Sync]|r Ranking data merged successfully. Now have %d sellers, %d buyers", 
-        finalSellers, finalBuyers))
+    -- Ranking data merged successfully
     
     -- Update UI if visible
     if OFAuctionFrameRanking and OFAuctionFrameRanking:IsShown() then

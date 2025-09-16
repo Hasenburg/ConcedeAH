@@ -28,10 +28,7 @@ function TradeAPI:OnInitialize()
         local me = UnitName("player")
         local meShort = string.match(me, "^([^-]+)") or me
         local API = ns.AuctionHouseAPI
-        print("|cFFFFFF00[Auctions Debug]|r Checking all auctions for " .. me)
-        if meShort ~= me then
-            print("|cFFFFFF00[Auctions Debug]|r Also checking short name: " .. meShort)
-        end
+        -- Debug removed
         
         local allAuctions = API:GetAllAuctions()
         local mySellerCount = 0
@@ -235,7 +232,7 @@ local function HandleTradeOK()
         end
     end
 
-    -- Debug prints for items
+    -- Items processing
     for i, item in pairs(t.playerItems) do
         ns.DebugLog("[DEBUG] HandleTradeOK Player Item", i, ":", item.itemID, "x", item.numItems)
     end
@@ -303,10 +300,8 @@ end
 -- Single event handler function
 function TradeAPI:OnEvent(event, ...)
     if event == "MAIL_SHOW" then
-        -- print("[DEBUG] MAIL_SHOW")
 
     elseif event == "MAIL_CLOSED" then
-        -- print("[DEBUG] MAIL_CLOSED")
 
     elseif event == "UI_ERROR_MESSAGE" then
         local _, arg2 = ...
@@ -316,14 +311,12 @@ function TradeAPI:OnEvent(event, ...)
             arg2 == ERR_TRADE_TARGET_MAX_COUNT_EXCEEDED or
             arg2 == ERR_TRADE_TARGET_DEAD or
             arg2 == ERR_TRADE_TOO_FAR) then
-            -- print("[DEBUG] Trade failed")
             Reset("trade failed "..arg2)  -- trade failed
         end
 
     elseif event == "UI_INFO_MESSAGE" then
         local _, arg2 = ...
         if (arg2 == ERR_TRADE_CANCELLED) then
-            -- print("[DEBUG] Trade cancelled")
             Reset("trade cancelled")
             -- Hide the trade info frame if it exists
             if TradeAPI.tradeInfoFrame then
@@ -352,7 +345,6 @@ function TradeAPI:OnEvent(event, ...)
 
     elseif event == "TRADE_MONEY_CHANGED" then
         UpdateMoney()
-        -- print("[DEBUG] TRADE_MONEY_CHANGED")
 
     elseif event == "TRADE_ACCEPT_UPDATE" then
         for i = 1, 7 do
@@ -360,7 +352,6 @@ function TradeAPI:OnEvent(event, ...)
             UpdateItemInfo(i, "Target", CurrentTrade().targetItems)
         end
         UpdateMoney()
-        -- print("[DEBUG] TRADE_ACCEPT_UPDATE")
     end
 end
 

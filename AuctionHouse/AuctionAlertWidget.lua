@@ -156,7 +156,7 @@ local function OnAuctionAddOrUpdate(payload)
         return
     end
 
-    -- Only show alerts for specific events
+    -- Only show alerts for specific events (ignore sync events like "create")
     if payload.source ~= "buy" and payload.source ~= "buy_loan" and payload.source ~= "status_update" and payload.source ~= "complete" then
         return
     end

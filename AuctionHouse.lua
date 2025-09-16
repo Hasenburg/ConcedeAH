@@ -228,6 +228,17 @@ function AuctionHouse:OnInitialize()
     -- chat commands
     SLASH_GAH1 = "/gah"
     SlashCmdList["GAH"] = function(msg) self:OpenAuctionHouse() end
+    
+    -- Manual sync command
+    SLASH_GAHSYNC1 = "/gahsync"
+    SlashCmdList["GAHSYNC"] = function(msg)
+        print(ChatPrefix() .. " Requesting full auction sync from guild...")
+        -- Reset the received flags to allow re-syncing
+        self.receivedAuctionState = false
+        self.receivedTradeState = false
+        self:RequestLatestState()
+        self:RequestLatestTradeState()
+    end
 
     -- Start auction expiration and trade trimming
     C_Timer.NewTicker(10, function()
@@ -235,6 +246,16 @@ function AuctionHouse:OnInitialize()
     end)
     C_Timer.NewTicker(61, function()
         API:TrimTrades()
+    end)
+    
+    -- Periodic sync: Request auction state updates every 10 minutes
+    -- This ensures players get auctions that were created while they were offline
+    C_Timer.NewTicker(600, function()
+        -- Only request if we've been online for at least 5 minutes
+        if GetTime() - self.initAt > 300 then
+            self:RequestLatestState()
+            self:RequestLatestTradeState()
+        end
     end)
 
     -- Test user functionality removed (streamer/race mapping no longer used)
@@ -246,6 +267,22 @@ function AuctionHouse:OnInitialize()
     self:RequestLatestRatingsState()
     self:RequestLatestBlacklistState()
     self:RequestAddonVersion()
+    
+    -- Also broadcast our own state after a short delay to help others sync
+    -- This ensures that when we come online, other guild members get our auctions
+    C_Timer.After(3, function()
+        -- Broadcast a state update event to notify others we're online with data
+        if self.db.revision > 0 then
+            local auctionCount = 0
+            for _ in pairs(self.db.auctions) do
+                auctionCount = auctionCount + 1
+            end
+            if auctionCount > 0 then
+                -- Send a lightweight notification that we have auction data available
+                self:BroadcastMessage(self:Serialize({ "AUCTION_DATA_AVAILABLE", { revision = self.db.revision, count = auctionCount } }))
+            end
+        end
+    end)
 
     if self.db.showDebugUIOnLoad and self.CreateDebugUI then
         self:CreateDebugUI()
@@ -300,9 +337,9 @@ function AuctionHouse:BroadcastRankingUpdate(dataType, payload)
 end
 
 function AuctionHouse:IsSyncWindowExpired()
-    -- safety: only allow initial state within 2 minutes after login (chat can be very slow due to ratelimit, so has to be high)
-    -- just in case there's a bug we didn't anticipate
-    return GetTime() - self.initAt > 120
+    -- Allow initial state sync within 5 minutes after login to ensure all auctions are received
+    -- This gives more time for guild members to respond with their auction data
+    return GetTime() - self.initAt > 300
 end
 
 local function IsGuildMember(name)
