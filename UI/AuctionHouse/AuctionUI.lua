@@ -3390,25 +3390,19 @@ function OFAuctionsCreateAuctionButton_OnClick()
     end
 
     -- Create multiple auctions based on numStacks
-    local error, auctionCap, _
-    auctionCap = ns.GetConfig().auctionCap
+    local error, _
     local createdStacks = 0
     local totalErrors = ""
     
     for i = 1, numStacks do
-        if #ns.GetMyAuctions() >= auctionCap then
+        -- Removed auction cap check - unlimited auctions allowed
+        _, error = ns.AuctionHouseAPI:CreateAuction(itemID, buyoutPrice, stackSize, allowLoans, priceType, deliveryType, ns.AUCTION_TYPE_SELL, roleplay, deathRoll, duel, raidAmount, note)
+        if error then
             if totalErrors ~= "" then totalErrors = totalErrors .. "\n" end
-            totalErrors = totalErrors .. string.format("Stopped at stack %d/%d: You cannot have more than %d auctions", i, numStacks, auctionCap)
+            totalErrors = totalErrors .. string.format("Stack %d: %s", i, error)
             break
         else
-            _, error = ns.AuctionHouseAPI:CreateAuction(itemID, buyoutPrice, stackSize, allowLoans, priceType, deliveryType, ns.AUCTION_TYPE_SELL, roleplay, deathRoll, duel, raidAmount, note)
-            if error then
-                if totalErrors ~= "" then totalErrors = totalErrors .. "\n" end
-                totalErrors = totalErrors .. string.format("Stack %d: %s", i, error)
-                break
-            else
-                createdStacks = createdStacks + 1
-            end
+            createdStacks = createdStacks + 1
         end
     end
     
