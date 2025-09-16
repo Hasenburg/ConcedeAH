@@ -284,7 +284,6 @@ function AuctionHouse:OnInitialize()
     SLASH_GAHSYNC1 = "/gahsync"
     SlashCmdList["GAHSYNC"] = function(msg)
         print(ChatPrefix() .. " Requesting full auction sync from guild...")
-        print(ChatPrefix() .. " Broadcasting sync request to all guild members...")
         
         -- Reset the received flags to allow re-syncing
         self.receivedAuctionState = false
@@ -298,8 +297,6 @@ function AuctionHouse:OnInitialize()
             player = UnitName("player"),
             revision = 0  -- Force full sync by claiming revision 0
         }}))
-        
-        print(ChatPrefix() .. " Sync request sent. Waiting for responses...")
         
         -- Also do the regular sync request
         self:RequestLatestState()
@@ -399,7 +396,6 @@ function AuctionHouse:SendDm(message, recipient, prio)
         target = string.format("%s-%s", recipient, GetRealmName())
     end
     
-    print(ChatPrefix() .. string.format(" DEBUG: Sending DM to %s (prio: %s, size: %d bytes)", target, prio or "normal", #message))
     self:SendCommMessage(COMM_PREFIX, message, "WHISPER", target, prio)
 end
 
@@ -465,19 +461,6 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         senderName = string.match(sender, "([^-]+)")
     end
     
-    -- Debug: Log all incoming messages
-    if prefix == COMM_PREFIX then
-        local success, data = self:Deserialize(message)
-        if success then
-            local dataType = data[1]
-            if dataType == T_AUCTION_STATE then
-                print(ChatPrefix() .. string.format(" DEBUG: Received T_AUCTION_STATE from %s (full: %s) via %s", senderName, sender, distribution))
-            elseif dataType == "PLAYER_NEEDS_SYNC" then
-                print(ChatPrefix() .. string.format(" DEBUG: Received PLAYER_NEEDS_SYNC from %s (full: %s) via %s", senderName, sender, distribution))
-            end
-        end
-    end
-    
     -- Check whisper messages for guild membership
     -- During sync window (first 5 minutes), be more permissive to handle guild roster delays
     if distribution == W then
@@ -489,14 +472,13 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
             if not self:IsSyncWindowExpired() then
                 local success2, data2 = self:Deserialize(message)
                 if success2 and data2[1] == T_AUCTION_STATE then
-                    print(ChatPrefix() .. string.format(" WARNING: Allowing auction sync from %s (guild roster may not be loaded yet)", senderName))
-                    -- Allow this message to proceed
+                    -- Allow this message to proceed (guild roster may not be loaded yet)
                 else
-                    print(ChatPrefix() .. string.format(" DEBUG: Blocked non-sync whisper from %s", senderName))
+                    -- Block non-sync whispers
                     return
                 end
             else
-                print(ChatPrefix() .. string.format(" DEBUG: Blocked whisper from non-guild member %s (sync window expired)", senderName))
+                -- Block whispers from non-guild members after sync window
                 return
             end
         end
@@ -578,12 +560,9 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), senderName, "BULK")
 
     elseif dataType == T_AUCTION_STATE then
-        print(ChatPrefix() .. " Receiving auction state from " .. (senderName or "unknown"))
-        
         -- Allow receiving auction state multiple times during the sync window
         -- This is important when multiple players send their data
         if self:IsSyncWindowExpired() and self.receivedAuctionState then
-            print(ChatPrefix() .. " Ignoring auction state - sync window expired")
             ns.DebugLog("ignoring T_AUCTION_STATE - sync window expired")
             return
         end
@@ -596,7 +575,6 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         local decompressTime = (GetTimePreciseSec() - decompressStart) * 1000
         
         if not decompressed then
-            print(ChatPrefix() .. " ERROR: Failed to decompress auction data")
             return
         end
 
@@ -605,7 +583,6 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         local deserializeTime = (GetTimePreciseSec() - deserializeStart) * 1000
 
         if not success then
-            print(ChatPrefix() .. " ERROR: Failed to deserialize auction data")
             return
         end
 
@@ -620,8 +597,6 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         for _ in pairs(state.auctions or {}) do
             auctionsReceived = auctionsReceived + 1
         end
-        
-        print(ChatPrefix() .. string.format(" Processing %d auctions from sync...", auctionsReceived))
         
         -- Always process auctions during the sync window or if sender has higher revision
         if not self:IsSyncWindowExpired() or state.revision > self.db.revision then
@@ -672,12 +647,6 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
             end
 
             API:FireEvent(ns.T_ON_AUCTION_STATE_UPDATE)
-
-            -- Show what was received to help debug
-            if auctionsReceived > 0 then
-                print(ChatPrefix() .. string.format(" Received %d auctions: %d new, %d updated, %d skipped", 
-                    auctionsReceived, auctionsNew, auctionsUpdated, auctionsSkipped))
-            end
             
             ns.DebugLog(string.format("[DEBUG] Processed auction state: %d received, %d new, %d updated, %d deleted, revision %d",
                 auctionsReceived, auctionsNew, auctionsUpdated,
@@ -947,7 +916,6 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
     elseif dataType == "PLAYER_NEEDS_SYNC" then
         -- A new player logged in and needs auction data
         -- Every online player should send their auction data to help sync
-        print(ChatPrefix() .. string.format(" Received sync request from %s", payload.player or "unknown"))
         if payload.player ~= UnitName("player") then
             -- Don't respond to our own sync request
             C_Timer.After(math.random() * 2 + 0.5, function()
@@ -966,14 +934,9 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
                     local serialized = self:Serialize(responsePayload)
                     local compressed = LibDeflate:CompressDeflate(serialized)
                     
-                    print(ChatPrefix() .. string.format(" Preparing to send %d auctions to %s (compressed: %d bytes)", 
-                        auctionCount, payload.player, #compressed))
-                    
                     -- Send directly to the requesting player
                     self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), payload.player, "BULK")
                     
-                    print(ChatPrefix() .. string.format(" Sharing %d/%d auctions with %s", 
-                        auctionCount, totalInDB, payload.player))
                     ns.DebugLog(string.format("[DEBUG] Sent %d of %d total auctions to new player %s (compressed: %d bytes)", 
                         auctionCount, totalInDB, payload.player, #compressed))
                 else
