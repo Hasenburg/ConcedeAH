@@ -239,6 +239,14 @@ function AuctionHouse:OnInitialize()
         -- Reset the received flags to allow re-syncing
         self.receivedAuctionState = false
         self.receivedTradeState = false
+        
+        -- Broadcast that we need a full sync - same as a new player
+        self:BroadcastMessage(self:Serialize({ "PLAYER_NEEDS_SYNC", { 
+            player = UnitName("player"),
+            revision = 0  -- Force full sync by claiming revision 0
+        }}))
+        
+        -- Also do the regular sync request
         self:RequestLatestState()
         self:RequestLatestTradeState()
     end
@@ -256,8 +264,11 @@ function AuctionHouse:OnInitialize()
     C_Timer.NewTicker(600, function()
         -- Only request if we've been online for at least 5 minutes
         if GetTime() - self.initAt > 300 then
-            self:RequestLatestState()
-            self:RequestLatestTradeState()
+            -- Broadcast that we need updates - triggers full sync from all online players
+            self:BroadcastMessage(self:Serialize({ "PLAYER_NEEDS_SYNC", { 
+                player = UnitName("player"),
+                revision = self.db.revision or 0
+            }}))
         end
     end)
 
@@ -778,11 +789,10 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         -- Every online player should send their auction data to help sync
         if payload.player ~= UnitName("player") then
             -- Don't respond to our own sync request
-            C_Timer.After(math.random(1, 3), function()
-                -- Add a random delay to avoid overwhelming the new player
-                -- Build and send our full auction state
-                local auctions = self:BuildAuctionsTable()
-                local responsePayload, auctionCount, deletedCount = self:BuildDeltaState(payload.revision or 0, {})
+            C_Timer.After(math.random() * 2 + 0.5, function()
+                -- Add a random 0.5-2.5 second delay to avoid overwhelming the new player
+                -- Force send ALL auctions by passing revision 0
+                local responsePayload, auctionCount, deletedCount = self:BuildDeltaState(0, {})
                 
                 if auctionCount > 0 then
                     -- We have auctions to share, send them to the new player
@@ -792,7 +802,8 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
                     -- Send directly to the requesting player
                     self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), payload.player, "BULK")
                     
-                    ns.DebugLog(string.format("[DEBUG] Sending %d auctions to new player %s", 
+                    print(ChatPrefix() .. " Sharing " .. auctionCount .. " auctions with " .. payload.player)
+                    ns.DebugLog(string.format("[DEBUG] Sent ALL %d auctions to new player %s", 
                         auctionCount, payload.player))
                 end
             end)
@@ -809,19 +820,34 @@ function AuctionHouse:BuildDeltaState(requesterRevision, requesterAuctions)
     local auctionCount = 0
     local deletionCount = 0
 
-    if requesterRevision < self.db.revision then
+    -- Always send auctions if we have a higher revision or if requester has very low revision (new player)
+    if requesterRevision < self.db.revision or requesterRevision == 0 then
         -- Convert requesterAuctions array to lookup table with revisions
         local requesterAuctionLookup = {}
         for _, auctionInfo in ipairs(requesterAuctions or {}) do
             requesterAuctionLookup[auctionInfo.id] = auctionInfo.rev
         end
 
-        -- Find auctions to send (those that requester doesn't have or has older revision)
-        for id, auction in pairs(self.db.auctions) do
-            local requesterRev = requesterAuctionLookup[id]
-            if not requesterRev or (auction.rev > requesterRev) then
-                auctionsToSend[id] = auction
-                auctionCount = auctionCount + 1
+        -- If requester has revision 0 or very low revision, send ALL active auctions
+        if requesterRevision == 0 or (self.db.revision - requesterRevision > 100) then
+            -- Send all auctions - the requester is likely a new player or was offline for long
+            for id, auction in pairs(self.db.auctions) do
+                -- Only send active auctions
+                if auction.status == ns.AUCTION_STATUS_ACTIVE or 
+                   auction.status == ns.AUCTION_STATUS_PENDING_TRADE or 
+                   auction.status == ns.AUCTION_STATUS_PENDING_LOAN then
+                    auctionsToSend[id] = auction
+                    auctionCount = auctionCount + 1
+                end
+            end
+        else
+            -- Normal delta sync - only send updated auctions
+            for id, auction in pairs(self.db.auctions) do
+                local requesterRev = requesterAuctionLookup[id]
+                if not requesterRev or (auction.rev > requesterRev) then
+                    auctionsToSend[id] = auction
+                    auctionCount = auctionCount + 1
+                end
             end
         end
 
@@ -1009,7 +1035,14 @@ end
 
 function AuctionHouse:RequestLatestState()
     local auctions = self:BuildAuctionsTable()
-    local payload = { T_AUCTION_STATE_REQUEST, { revision = self.db.revision, auctions = auctions } }
+    -- If we have very low revision, request ALL auctions, not just delta
+    local revision = self.db.revision
+    if revision < 10 then
+        -- Signal that we need everything by sending revision 0
+        revision = 0
+        auctions = {} -- Don't send our auctions if we're new
+    end
+    local payload = { T_AUCTION_STATE_REQUEST, { revision = revision, auctions = auctions } }
     local msg = self:Serialize(payload)
 
     self:BroadcastMessage(msg)
