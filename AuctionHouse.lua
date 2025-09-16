@@ -477,34 +477,43 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
             return
         end
 
-        -- Update revision and lastUpdateAt if necessary
-        if state.revision > self.db.revision then
+        -- Process received auctions regardless of revision during sync window
+        -- This is important when multiple players send their data
+        local auctionsReceived = 0
+        local auctionsUpdated = 0
+        local auctionsNew = 0
+        
+        -- Always process auctions during the sync window or if sender has higher revision
+        if not self:IsSyncWindowExpired() or state.revision > self.db.revision then
             -- Update local auctions with received data
             for id, auction in pairs(state.auctions or {}) do
+                auctionsReceived = auctionsReceived + 1
                 local oldAuction = self.db.auctions[id]
-                self.db.auctions[id] = auction
-
-                -- Fire event only if auction changed, with appropriate source
-                if not oldAuction then
-                    -- New auction
-                    API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction, source = "create"})
-
-                elseif oldAuction.rev == auction.rev then
-                    -- no events to fire
-
-                elseif oldAuction.status ~= auction.status then
-                    -- status change event
-                    local source = "status_update"
-                    if auction.status == ns.AUCTION_STATUS_PENDING_TRADE then
-                        source = "buy"
-                    elseif auction.status == ns.AUCTION_STATUS_PENDING_LOAN then
-                        source = "buy_loan"
+                
+                -- Only update if we don't have it or the received one is newer
+                if not oldAuction or (auction.rev and oldAuction.rev and auction.rev > oldAuction.rev) then
+                    self.db.auctions[id] = auction
+                    
+                    if not oldAuction then
+                        auctionsNew = auctionsNew + 1
+                        -- New auction
+                        API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction, source = "create"})
+                    else
+                        auctionsUpdated = auctionsUpdated + 1
+                        if oldAuction.status ~= auction.status then
+                            -- status change event
+                            local source = "status_update"
+                            if auction.status == ns.AUCTION_STATUS_PENDING_TRADE then
+                                source = "buy"
+                            elseif auction.status == ns.AUCTION_STATUS_PENDING_LOAN then
+                                source = "buy_loan"
+                            end
+                            API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction, source = source})
+                        else
+                            -- unknown update reason (source)
+                            API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction})
+                        end
                     end
-
-                    API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction, source = source})
-                else
-                    -- unknown update reason (source)
-                    API:FireEvent(ns.T_AUCTION_SYNCED, {auction = auction})
                 end
             end
 
@@ -513,19 +522,27 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
                 self.db.auctions[id] = nil
             end
 
-            self.db.revision = state.revision
-            self.db.lastUpdateAt = state.lastUpdateAt
+            -- Update revision to the highest one we've seen
+            if state.revision > self.db.revision then
+                self.db.revision = state.revision
+                self.db.lastUpdateAt = state.lastUpdateAt
+            end
 
             API:FireEvent(ns.T_ON_AUCTION_STATE_UPDATE)
 
-            ns.DebugLog(string.format("[DEBUG] Updated local state with %d new auctions, %d deleted auctions, revision %d (bytes-compressed: %d, decompress: %.0fms, deserialize: %.0fms)",
-                #(state.auctions or {}), #(state.deletedAuctionIds or {}),
-                self.db.revision,
-                #payload,
-                decompressTime, deserializeTime
+            -- Show what was received to help debug
+            if auctionsReceived > 0 then
+                print(ChatPrefix() .. string.format(" Received %d auctions (%d new, %d updated)", 
+                    auctionsReceived, auctionsNew, auctionsUpdated))
+            end
+            
+            ns.DebugLog(string.format("[DEBUG] Processed auction state: %d received, %d new, %d updated, %d deleted, revision %d",
+                auctionsReceived, auctionsNew, auctionsUpdated,
+                #(state.deletedAuctionIds or {}),
+                self.db.revision
             ))
-        -- else
-        --     ns.DebugLog("[DEBUG] Ignoring outdated state update", state.revision, self.db.revision)
+        else
+            ns.DebugLog("[DEBUG] Ignoring outdated state update", state.revision, self.db.revision)
         end
 
     elseif dataType == T_CONFIG_REQUEST then
@@ -790,6 +807,12 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         if payload.player ~= UnitName("player") then
             -- Don't respond to our own sync request
             C_Timer.After(math.random() * 2 + 0.5, function()
+                -- Count total auctions in our database
+                local totalInDB = 0
+                for _ in pairs(self.db.auctions) do
+                    totalInDB = totalInDB + 1
+                end
+                
                 -- Add a random 0.5-2.5 second delay to avoid overwhelming the new player
                 -- Force send ALL auctions by passing revision 0
                 local responsePayload, auctionCount, deletedCount = self:BuildDeltaState(0, {})
@@ -802,9 +825,13 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
                     -- Send directly to the requesting player
                     self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), payload.player, "BULK")
                     
-                    print(ChatPrefix() .. " Sharing " .. auctionCount .. " auctions with " .. payload.player)
-                    ns.DebugLog(string.format("[DEBUG] Sent ALL %d auctions to new player %s", 
-                        auctionCount, payload.player))
+                    print(ChatPrefix() .. string.format(" Sharing %d/%d auctions with %s", 
+                        auctionCount, totalInDB, payload.player))
+                    ns.DebugLog(string.format("[DEBUG] Sent %d of %d total auctions to new player %s", 
+                        auctionCount, totalInDB, payload.player))
+                else
+                    ns.DebugLog(string.format("[DEBUG] No auctions to send to %s (total in DB: %d)", 
+                        payload.player, totalInDB))
                 end
             end)
         end
@@ -831,15 +858,25 @@ function AuctionHouse:BuildDeltaState(requesterRevision, requesterAuctions)
         -- If requester has revision 0 or very low revision, send ALL active auctions
         if requesterRevision == 0 or (self.db.revision - requesterRevision > 100) then
             -- Send all auctions - the requester is likely a new player or was offline for long
+            local totalAuctions = 0
+            local skippedAuctions = 0
             for id, auction in pairs(self.db.auctions) do
-                -- Only send active auctions
-                if auction.status == ns.AUCTION_STATUS_ACTIVE or 
-                   auction.status == ns.AUCTION_STATUS_PENDING_TRADE or 
-                   auction.status == ns.AUCTION_STATUS_PENDING_LOAN then
+                totalAuctions = totalAuctions + 1
+                -- Send ALL auctions except completed ones and nil status
+                -- This includes: ACTIVE, PENDING_TRADE, PENDING_LOAN, SENT_COD, SENT_LOAN
+                if auction.status and auction.status ~= ns.AUCTION_STATUS_COMPLETED then
                     auctionsToSend[id] = auction
                     auctionCount = auctionCount + 1
+                    ns.DebugLog(string.format("[DEBUG] Including auction %s status=%s", 
+                        id, auction.status or "nil"))
+                else
+                    skippedAuctions = skippedAuctions + 1
+                    ns.DebugLog(string.format("[DEBUG] Skipping auction %s status=%s", 
+                        id, auction.status or "nil"))
                 end
             end
+            ns.DebugLog(string.format("[DEBUG] BuildDeltaState: Sending ALL auctions - %d active, %d skipped (completed/expired), %d total",
+                auctionCount, skippedAuctions, totalAuctions))
         else
             -- Normal delta sync - only send updated auctions
             for id, auction in pairs(self.db.auctions) do
