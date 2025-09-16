@@ -1,70 +1,91 @@
 ===============================================
-ConcedeAH - Alle verfügbaren Chat-Kommandos
+ConcedeAH - All Available Chat Commands
 ===============================================
 
-ALLGEMEINE KOMMANDOS (für alle Spieler)
+GENERAL COMMANDS (for all players)
 ========================================
 
-/ah
-  Öffnet das ConcedeAH Auktionshaus-Fenster
+/gah
+  Opens the ConcedeAH Auction House window
+
+/gahsync
+  Requests a full auction sync from guild members
+  Useful if you're missing auctions or need to refresh data
 
 /rankingsync
-  Erzwingt eine Synchronisierung der Ranking-Daten mit anderen Spielern
+  Forces a synchronization of ranking data with other players
 
 /rankingdebug
-  Zeigt Debug-Informationen über die aktuellen Rankings
-  - Zeigt aktuelle Woche Sales/Purchases
-  - Zeigt All-Time Sales/Purchases
-  - Zeigt Wochenstartzeit
+  Shows debug information about current rankings
+  - Shows current week Sales/Purchases
+  - Shows All-Time Sales/Purchases
+  - Shows week start time
 
 /rankingupdate
-  Erzwingt eine Aktualisierung der Ranking-Anzeige
-  - Öffnet das Ranking-Tab falls es geschlossen ist
-  - Aktualisiert die Liste
+  Forces an update of the ranking display
+  - Opens the Ranking tab if it's closed
+  - Refreshes the list
+
+/rankingbroadcast
+  Broadcasts the full ranking state to guild members
 
 
-ADMIN KOMMANDOS (nur für Basenburg)
+TRADING COMMANDS
+====================================
+
+/checkauctions
+  Shows all your pending auctions as buyer or seller
+  Useful for debugging trade issues
+
+/testbuy <otherPlayerName>
+  Creates a test auction for debugging (development only)
+  Example: /testbuy PlayerName
+
+
+ADMIN COMMANDS (restricted access)
 ====================================
 
 /rankingreset
-  Zeigt Anweisungen zum Zurücksetzen aller Rankings
+  Shows instructions for resetting all rankings
 
 /rankingreset confirm
-  Setzt alle Rankings zurück (Woche und All-Time)
-  WARNUNG: Diese Aktion kann nicht rückgängig gemacht werden!
+  Resets all rankings (week and all-time)
+  WARNING: This action cannot be undone!
 
-/rankingset <Spielername> <SalesPoints> [PurchasePoints]
-  Setzt die Punkte eines Spielers manuell
-  Beispiele:
-    /rankingset Bob 10        - Setzt Bob auf 10 Sales, 0 Purchases
-    /rankingset Bob 10 5      - Setzt Bob auf 10 Sales, 5 Purchases
-
-/rankingbroadcast
-  Sendet die aktuellen Rankings an alle Gildenmitglieder
-  Nützlich nach manuellen Änderungen
+/rankingset <PlayerName> <SalesPoints> [PurchasePoints]
+  Manually sets a player's points
+  Examples:
+    /rankingset Bob 10        - Sets Bob to 10 Sales, 0 Purchases
+    /rankingset Bob 10 5      - Sets Bob to 10 Sales, 5 Purchases
 
 /auctiondel <AuctionID>
-  Löscht eine Auktion aus dem Marktplatz
-  Die AuctionID wird angezeigt wenn man mit der Maus über ein Angebot fährt
-  Alternativ: Shift-Klick auf den roten X-Button im Marketplace (nur als Admin sichtbar)
+  Deletes an auction from the marketplace
+  The AuctionID is shown when hovering over an offer
+  Alternative: Shift-click the red X button in Marketplace (only visible to admins)
 
 
-ZUSÄTZLICHE INFORMATIONEN
+ADDITIONAL INFORMATION
 =========================
 
-Ranking-System:
-- Rankings werden automatisch jeden Mittwoch um 8:00 Uhr zurückgesetzt
-- Verkäufer erhalten 1 Punkt pro verkauftem Item (Sales)
-- Käufer erhalten 1 Punkt pro gekauftem Item (Purchases)
-- Die Gesamtpunkte (Total) sind Sales + Purchases
+Ranking System:
+- Rankings automatically reset every Wednesday at 8:00 AM
+- Sellers receive 1 point per item sold (Sales)
+- Buyers receive 1 point per item purchased (Purchases)
+- Total points are Sales + Purchases
 
-Ranking-Tab Features:
-- Klicke auf Spaltenüberschriften zum Sortieren
-- Standardsortierung ist nach Sales (höchste zuerst)
-- Links in der Seitenleiste: All Time, Current Week, historische Wochen
-- Top 3 Spieler erhalten spezielle Hervorhebungen (Gold, Silber, Bronze)
+Ranking Tab Features:
+- Click column headers to sort
+- Default sorting is by Sales (highest first)
+- Sidebar links: All Time, Current Week, historical weeks
+- Top 3 players receive special highlights (Gold, Silver, Bronze)
 
-Admin-Modus:
-- Nur der Charakter "Basenburg" hat Admin-Rechte
-- Admin-Befehle werden mit einer Bestätigungsmeldung quittiert
-- Alle Admin-Aktionen werden an andere Spieler synchronisiert
+Auction Syncing:
+- Auctions are automatically synced when you log in
+- Sync requests happen every 10 minutes to catch offline auctions
+- Use /gahsync to manually request a full sync
+- Sync window is 5 minutes after login for initial sync
+
+Admin Mode:
+- Admin rights are restricted to specific characters
+- Admin commands are acknowledged with confirmation messages
+- All admin actions are synchronized to other players

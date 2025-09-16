@@ -143,6 +143,9 @@ local CHANNEL_WHITELIST = {
     [T_RANKING_UPDATE]         = {[G] = 1},
     [T_RANKING_STATE_REQUEST]  = {[G] = 1},
     [T_RANKING_STATE]          = {[W] = 1},
+    
+    -- Player sync
+    ["PLAYER_NEEDS_SYNC"]      = {[G] = 1},
 }
 
 local function getFullName(name)
@@ -268,20 +271,14 @@ function AuctionHouse:OnInitialize()
     self:RequestLatestBlacklistState()
     self:RequestAddonVersion()
     
-    -- Also broadcast our own state after a short delay to help others sync
-    -- This ensures that when we come online, other guild members get our auctions
-    C_Timer.After(3, function()
-        -- Broadcast a state update event to notify others we're online with data
-        if self.db.revision > 0 then
-            local auctionCount = 0
-            for _ in pairs(self.db.auctions) do
-                auctionCount = auctionCount + 1
-            end
-            if auctionCount > 0 then
-                -- Send a lightweight notification that we have auction data available
-                self:BroadcastMessage(self:Serialize({ "AUCTION_DATA_AVAILABLE", { revision = self.db.revision, count = auctionCount } }))
-            end
-        end
+    -- Announce that we're a new player who needs auction data
+    -- This triggers all online players to send us their auctions
+    C_Timer.After(2, function()
+        -- Broadcast that we're online and need auction sync
+        self:BroadcastMessage(self:Serialize({ "PLAYER_NEEDS_SYNC", { 
+            player = UnitName("player"),
+            revision = self.db.revision or 0
+        }}))
     end)
 
     if self.db.showDebugUIOnLoad and self.CreateDebugUI then
@@ -303,6 +300,14 @@ function AuctionHouse:OnInitialize()
     self.receivedTradeState = false
     self.receivedRatingState = false
     self.receivedBlacklistState = false
+    
+    -- After sync window expires, mark states as received to prevent late responses
+    C_Timer.After(300, function()
+        self.receivedAuctionState = true
+        self.receivedTradeState = true
+        self.receivedRatingState = true
+        self.receivedBlacklistState = true
+    end)
 end
 
 function AuctionHouse:BroadcastMessage(message)
@@ -439,11 +444,14 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), sender, "BULK")
 
     elseif dataType == T_AUCTION_STATE then
+        -- Allow receiving auction state multiple times during the sync window
+        -- This is important when multiple players send their data
         if self:IsSyncWindowExpired() and self.receivedAuctionState then
-            ns.DebugLog("ignoring T_AUCTION_STATE")
+            ns.DebugLog("ignoring T_AUCTION_STATE - sync window expired")
             return
         end
-        self.receivedAuctionState = true
+        -- Don't set receivedAuctionState to true immediately anymore
+        -- Allow multiple responses during the sync window
 
         -- Decompress the payload before processing
         local decompressStart = GetTimePreciseSec()
@@ -764,6 +772,32 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         else
             ns.DebugLog("[DEBUG] Outdated blacklist state ignored", state.revBlacklists, self.db.revBlacklists)
         end
+        
+    elseif dataType == "PLAYER_NEEDS_SYNC" then
+        -- A new player logged in and needs auction data
+        -- Every online player should send their auction data to help sync
+        if payload.player ~= UnitName("player") then
+            -- Don't respond to our own sync request
+            C_Timer.After(math.random(1, 3), function()
+                -- Add a random delay to avoid overwhelming the new player
+                -- Build and send our full auction state
+                local auctions = self:BuildAuctionsTable()
+                local responsePayload, auctionCount, deletedCount = self:BuildDeltaState(payload.revision or 0, {})
+                
+                if auctionCount > 0 then
+                    -- We have auctions to share, send them to the new player
+                    local serialized = self:Serialize(responsePayload)
+                    local compressed = LibDeflate:CompressDeflate(serialized)
+                    
+                    -- Send directly to the requesting player
+                    self:SendDm(self:Serialize({ T_AUCTION_STATE, compressed }), payload.player, "BULK")
+                    
+                    ns.DebugLog(string.format("[DEBUG] Sending %d auctions to new player %s", 
+                        auctionCount, payload.player))
+                end
+            end)
+        end
+        
     else
         ns.DebugLog("[DEBUG] unknown event type", dataType)
     end
