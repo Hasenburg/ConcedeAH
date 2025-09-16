@@ -306,6 +306,12 @@ function AuctionHouse:OnInitialize()
         self:RequestLatestTradeState()
     end
 
+    -- Request guild roster update to ensure we have member data
+    GuildRoster()
+    -- Repeat guild roster update after delay to ensure it's loaded
+    C_Timer.After(2, function() GuildRoster() end)
+    C_Timer.After(5, function() GuildRoster() end)
+    
     -- Start auction expiration and trade trimming
     C_Timer.NewTicker(10, function()
         API:ExpireAuctions()
@@ -425,8 +431,22 @@ function AuctionHouse:IsSyncWindowExpired()
 end
 
 local function IsGuildMember(name)
+    -- First check our cached guild roster
     if ns.GuildRegister.table[getFullName(name)] then
         return true
+    end
+    
+    -- Check the actual guild roster directly
+    local numGuildMembers = GetNumGuildMembers()
+    for i = 1, numGuildMembers do
+        local memberName = GetGuildRosterInfo(i)
+        if memberName then
+            -- Extract just the name without realm
+            local shortName = string.match(memberName, "([^-]+)")
+            if shortName == name then
+                return true
+            end
+        end
     end
 
     -- might still be guild member if the GuildRegister table didn't finish updating (server delay)
@@ -458,12 +478,28 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
         end
     end
     
-    -- disallow whisper messages from outside the guild to avoid bad actors to inject malicious data
-    -- this means that early on during login we might discard messages from guild members until the guild roaster is known.
-    -- however, since we sync the state with the guild roaster on login this shouldn't be a problem.
-    if distribution == W and not IsGuildMember(senderName) then
-        print(ChatPrefix() .. string.format(" DEBUG: Blocked whisper from non-guild member %s (full: %s)", senderName, sender))
-        return
+    -- Check whisper messages for guild membership
+    -- During sync window (first 5 minutes), be more permissive to handle guild roster delays
+    if distribution == W then
+        local isGuild = IsGuildMember(senderName)
+        
+        if not isGuild then
+            -- During sync window, allow T_AUCTION_STATE messages even from non-verified guild members
+            -- This handles the case where guild roster hasn't loaded yet
+            if not self:IsSyncWindowExpired() then
+                local success2, data2 = self:Deserialize(message)
+                if success2 and data2[1] == T_AUCTION_STATE then
+                    print(ChatPrefix() .. string.format(" WARNING: Allowing auction sync from %s (guild roster may not be loaded yet)", senderName))
+                    -- Allow this message to proceed
+                else
+                    print(ChatPrefix() .. string.format(" DEBUG: Blocked non-sync whisper from %s", senderName))
+                    return
+                end
+            else
+                print(ChatPrefix() .. string.format(" DEBUG: Blocked whisper from non-guild member %s (sync window expired)", senderName))
+                return
+            end
+        end
     end
 
     if prefix == OF_COMM_PREFIX then
