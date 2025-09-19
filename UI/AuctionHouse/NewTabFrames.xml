@@ -92,6 +92,11 @@
 				<Anchors>
 					<Anchor point="TOPRIGHT" x="-40" y="-120"/>
 				</Anchors>
+				<Scripts>
+					<OnVerticalScroll>
+						FauxScrollFrame_OnVerticalScroll(self, offset, 37, OFCreateOfferCurrentOffers_Update)
+					</OnVerticalScroll>
+				</Scripts>
 			</ScrollFrame>
 			<Button name="OFCreateOfferButton" inherits="UIPanelButtonTemplate" text="Create Offer">
 				<Size x="150" y="25"/>

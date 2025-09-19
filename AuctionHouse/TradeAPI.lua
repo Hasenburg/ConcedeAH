@@ -247,18 +247,38 @@ local function HandleTradeOK()
     )
 
     local function tryMatch(seller, buyer, items, money)
-        local success, hadCandidates, err, trade = ns.AuctionHouseAPI:TryCompleteItemTransfer(
-            seller,
-            buyer,
-            items,
-            money,
-            ns.DELIVERY_TYPE_TRADE
-        )
-
-        if success and trade then
-            StaticPopup_Show("OF_LEAVE_REVIEW", nil, nil, { tradeID = trade.id })
+        -- Try to match and complete multiple auctions
+        local completedCount = 0
+        local lastTrade = nil
+        
+        -- Process each item in the trade
+        for _, item in ipairs(items) do
+            local success, hadCandidates, err, trade = ns.AuctionHouseAPI:TryCompleteItemTransfer(
+                seller,
+                buyer,
+                {item},  -- Pass single item
+                money,
+                ns.DELIVERY_TYPE_TRADE
+            )
+            
+            if success and trade then
+                completedCount = completedCount + 1
+                lastTrade = trade
+                -- For subsequent items, don't include money
+                money = 0
+            end
+        end
+        
+        if completedCount > 0 then
+            if lastTrade then
+                StaticPopup_Show("OF_LEAVE_REVIEW", nil, nil, { tradeID = lastTrade.id })
+            end
+            if completedCount > 1 then
+                print(ChatPrefix() .. " Completed " .. completedCount .. " auctions in this trade")
+            end
             return true, nil
-        elseif err and hadCandidates then
+        else
+            -- Original error handling for when no auctions matched
             local itemInfo = ""
             if playerItems[1] then
                 itemInfo = itemInfo .. " (Player: " .. playerItems[1].itemID .. " x" .. playerItems[1].count .. ")"
@@ -267,16 +287,9 @@ local function HandleTradeOK()
                 itemInfo = itemInfo .. " (Target: " .. targetItems[1].itemID .. " x" .. targetItems[1].count .. ")"
             end
 
-            local msg
-            if err == "No matching auction found" then
-                msg = " Trade didn't match any guild auctions" .. itemInfo
-            else
-                msg = " Trade didn't match any guild auctions: " .. err .. itemInfo
-            end
-
+            local msg = " Trade didn't match any guild auctions" .. itemInfo
             return false, msg
         end
-        return false
     end
 
     -- Try first direction (target as seller)

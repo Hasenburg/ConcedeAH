@@ -1395,6 +1395,8 @@ function OFFilterButton_SetUp(button, info)
 end
 
 function OFAuctionFrameFilter_OnClick(self, button)
+	-- print("|cFFFFFF00[Debug Filter Click]|r Type: " .. tostring(self.type) .. ", Index: " .. tostring(self.categoryIndex or self.subCategoryIndex or self.subSubCategoryIndex))
+	
 	if ( self.type == "category" ) then
 		-- Special handling for "All" category (index 1) - always sets to nil (shows all)
 		if ( self.categoryIndex == 1 ) then
@@ -1410,6 +1412,8 @@ function OFAuctionFrameFilter_OnClick(self, button)
 		end
 		OFAuctionFrameBrowse.selectedSubCategoryIndex = nil;
 		OFAuctionFrameBrowse.selectedSubSubCategoryIndex = nil;
+		
+		-- print("|cFF00FF00[Debug]|r Selected category index: " .. tostring(OFAuctionFrameBrowse.selectedCategoryIndex))
 	elseif ( self.type == "subCategory" ) then
 		if ( OFAuctionFrameBrowse.selectedSubCategoryIndex == self.subCategoryIndex ) then
 			OFAuctionFrameBrowse.selectedSubCategoryIndex = nil;
@@ -1426,6 +1430,22 @@ function OFAuctionFrameFilter_OnClick(self, button)
 		end
 	end
 	OFAuctionFrameFilters_Update(true)
+	
+	-- Clear cache to force refresh with new filters
+	browseResultCache = nil
+	
+	-- Update based on which tab is visible
+	if OFAuctionFrameBrowse and OFAuctionFrameBrowse:IsVisible() then
+		if OFAuctionFrameBrowse.showOnlyOffers then
+			-- Marketplace mode - update via the marketplace function
+			-- print("|cFF00FF00[Debug]|r Updating Marketplace")
+			OFAuctionFrameBrowse_Update()
+		else
+			-- Normal browse mode
+			-- print("|cFF00FF00[Debug]|r Updating Browse")
+			OFAuctionFrameBrowse_Search()
+		end
+	end
 end
 
 local function UpdateItemIcon(itemID, buttonName, texture, count, canUse)
@@ -1877,6 +1897,34 @@ function OFAuctionFrameBrowse_Update()
                     shouldShow = false
                 end
                 
+                -- Apply category filter (skip "All" category which is index 1)
+                if shouldShow and OFAuctionFrameBrowse.selectedCategoryIndex and OFAuctionFrameBrowse.selectedCategoryIndex ~= 1 then
+                    local selectedCategory = OFAuctionCategories[OFAuctionFrameBrowse.selectedCategoryIndex]
+                    if selectedCategory then
+                        local itemSubClass, itemClassID = nil, nil
+                        if auction.itemID and auction.itemID > 0 then
+                            _, _, _, _, _, _, _, _, _, _, _, itemClassID, itemSubClass = GetItemInfo(auction.itemID)
+                        end
+                        
+                        local matchesFilter = false
+                        if itemClassID and selectedCategory.filters then
+                            for _, filter in ipairs(selectedCategory.filters) do
+                                if filter.classID == itemClassID and (not filter.subClassID or filter.subClassID == itemSubClass) then
+                                    matchesFilter = true
+                                    break
+                                end
+                            end
+                        elseif not itemClassID then
+                            -- If item info not loaded, don't filter it out
+                            matchesFilter = true
+                        end
+                        
+                        if not matchesFilter then
+                            shouldShow = false
+                        end
+                    end
+                end
+                
                 -- Apply search filter
                 if shouldShow and searchText ~= "" then
                     local itemName = ""
@@ -1901,6 +1949,108 @@ function OFAuctionFrameBrowse_Update()
         end
         auctions = filteredAuctions
         items = {}  -- No wishlist items in marketplace
+    else
+        -- Browse tab: Apply category filters if selected
+        local selectedCategory = nil
+        local selectedSubCategory = nil  
+        local selectedSubSubCategory = nil
+        
+        if OFAuctionFrameBrowse.selectedCategoryIndex then
+            selectedCategory = OFAuctionCategories[OFAuctionFrameBrowse.selectedCategoryIndex]
+            if selectedCategory and OFAuctionFrameBrowse.selectedSubCategoryIndex then
+                selectedSubCategory = selectedCategory.subCategories and selectedCategory.subCategories[OFAuctionFrameBrowse.selectedSubCategoryIndex]
+                if selectedSubCategory and OFAuctionFrameBrowse.selectedSubSubCategoryIndex then
+                    selectedSubSubCategory = selectedSubCategory.subCategories and selectedSubCategory.subCategories[OFAuctionFrameBrowse.selectedSubSubCategoryIndex]
+                end
+            end
+        end
+        
+        -- Apply category filter if selected (and not "All")
+        if selectedCategory and OFAuctionFrameBrowse.selectedCategoryIndex ~= 1 then
+            local filteredAuctions = {}
+            local filteredItems = {}
+            
+            for _, auction in ipairs(auctions) do
+                local shouldShow = false
+                local itemSubClass, itemClassID = nil, nil
+                
+                if auction.itemID and auction.itemID > 0 then
+                    _, _, _, _, _, _, _, _, _, _, _, itemClassID, itemSubClass = GetItemInfo(auction.itemID)
+                end
+                
+                -- Check if item matches selected category
+                if selectedSubSubCategory and selectedSubSubCategory.filters then
+                    -- Check sub-sub-category filters
+                    for _, filter in ipairs(selectedSubSubCategory.filters) do
+                        if filter.classID == itemClassID and (not filter.subClassID or filter.subClassID == itemSubClass) then
+                            shouldShow = true
+                            break
+                        end
+                    end
+                elseif selectedSubCategory and selectedSubCategory.filters then
+                    -- Check sub-category filters
+                    for _, filter in ipairs(selectedSubCategory.filters) do
+                        if filter.classID == itemClassID and (not filter.subClassID or filter.subClassID == itemSubClass) then
+                            shouldShow = true
+                            break
+                        end
+                    end
+                elseif selectedCategory and selectedCategory.filters then
+                    -- Check category filters
+                    for _, filter in ipairs(selectedCategory.filters) do
+                        if filter.classID == itemClassID and (not filter.subClassID or filter.subClassID == itemSubClass) then
+                            shouldShow = true
+                            break
+                        end
+                    end
+                end
+                
+                if shouldShow then
+                    table.insert(filteredAuctions, auction)
+                end
+            end
+            
+            -- Filter items as well
+            for _, item in ipairs(items) do
+                local shouldShow = false
+                local itemSubClass, itemClassID = nil, nil
+                
+                if item.itemID and item.itemID > 0 then
+                    _, _, _, _, _, _, _, _, _, _, _, itemClassID, itemSubClass = GetItemInfo(item.itemID)
+                end
+                
+                -- Check if item matches selected category (same logic as auctions)
+                if selectedSubSubCategory and selectedSubSubCategory.filters then
+                    for _, filter in ipairs(selectedSubSubCategory.filters) do
+                        if filter.classID == itemClassID and (not filter.subClassID or filter.subClassID == itemSubClass) then
+                            shouldShow = true
+                            break
+                        end
+                    end
+                elseif selectedSubCategory and selectedSubCategory.filters then
+                    for _, filter in ipairs(selectedSubCategory.filters) do
+                        if filter.classID == itemClassID and (not filter.subClassID or filter.subClassID == itemSubClass) then
+                            shouldShow = true
+                            break
+                        end
+                    end
+                elseif selectedCategory and selectedCategory.filters then
+                    for _, filter in ipairs(selectedCategory.filters) do
+                        if filter.classID == itemClassID and (not filter.subClassID or filter.subClassID == itemSubClass) then
+                            shouldShow = true
+                            break
+                        end
+                    end
+                end
+                
+                if shouldShow then
+                    table.insert(filteredItems, item)
+                end
+            end
+            
+            auctions = filteredAuctions
+            items = filteredItems
+        end
     end
 
     local totalEntries = #auctions + #items
@@ -1913,6 +2063,19 @@ function OFAuctionFrameBrowse_Update()
         totalEntries = totalEntries + 1
     end
     local numBatchAuctions = min(totalEntries, OF_NUM_AUCTION_ITEMS_PER_PAGE)
+    -- Clamp active page into valid range based on current totalEntries
+    do
+        local maxPage = math.max(0, math.ceil(totalEntries / OF_NUM_AUCTION_ITEMS_PER_PAGE) - 1)
+        if not OFAuctionFrameBrowse.page or OFAuctionFrameBrowse.page < 0 then
+            OFAuctionFrameBrowse.page = 0
+        elseif OFAuctionFrameBrowse.page > maxPage then
+            OFAuctionFrameBrowse.page = maxPage
+            -- ensure scroll is reset if page was clamped down
+            if OFBrowseScrollFrameScrollBar then
+                OFBrowseScrollFrameScrollBar:SetValue(0)
+            end
+        end
+    end
     local button;
     local offset = FauxScrollFrame_GetOffset(OFBrowseScrollFrame);
     
@@ -2021,6 +2184,20 @@ function OFAuctionFrameBrowse_Update()
     if ( totalEntries > OF_NUM_AUCTION_ITEMS_PER_PAGE ) then
         OFBrowsePrevPageButton.isEnabled = (OFAuctionFrameBrowse.page ~= 0);
         OFBrowseNextPageButton.isEnabled = (OFAuctionFrameBrowse.page ~= (ceil(totalEntries /OF_NUM_AUCTION_ITEMS_PER_PAGE) - 1));
+        
+        -- Update button states immediately
+        if OFBrowsePrevPageButton.isEnabled then
+            OFBrowsePrevPageButton:Enable()
+        else
+            OFBrowsePrevPageButton:Disable()
+        end
+        
+        if OFBrowseNextPageButton.isEnabled then
+            OFBrowseNextPageButton:Enable()
+        else
+            OFBrowseNextPageButton:Disable()
+        end
+        
         if ( isLastSlotEmpty ) then
             OFBrowseSearchCountText:Show();
             local itemsMin = OFAuctionFrameBrowse.page * OF_NUM_AUCTION_ITEMS_PER_PAGE + 1;
@@ -2035,6 +2212,8 @@ function OFAuctionFrameBrowse_Update()
     else
         OFBrowsePrevPageButton.isEnabled = false;
         OFBrowseNextPageButton.isEnabled = false;
+        OFBrowsePrevPageButton:Disable()
+        OFBrowseNextPageButton:Disable()
         OFBrowseSearchCountText:Hide();
     end
     FauxScrollFrame_Update(OFBrowseScrollFrame, numBatchAuctions, OF_NUM_BROWSE_TO_DISPLAY, OF_AUCTIONS_BUTTON_HEIGHT);

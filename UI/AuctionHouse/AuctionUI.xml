@@ -819,7 +819,6 @@
 							<OnClick>
 								PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
 								OFAuctionFrameBrowse.page = OFAuctionFrameBrowse.page - 1;
-								self:Disable();
 								OFBrowseScrollFrameScrollBar:SetValue(0);
 								OFAuctionFrameBrowse_Search();
 							</OnClick>
@@ -856,7 +855,6 @@
 							<OnClick>
 								PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
 								OFAuctionFrameBrowse.page = OFAuctionFrameBrowse.page + 1;
-								self:Disable();
 								OFBrowseScrollFrameScrollBar:SetValue(0);
 								OFAuctionFrameBrowse_Search();
 							</OnClick>

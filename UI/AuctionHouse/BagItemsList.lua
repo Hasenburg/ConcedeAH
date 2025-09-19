@@ -1,7 +1,8 @@
 local _, ns = ...
 
 local OF_MAX_BAG_ITEMS_DISPLAYED = 20
-local OF_BAGITEM_HEIGHT = 28
+local OF_BAGITEM_HEIGHT = 40 -- match row height configured in XML FauxScrollFrame_OnVerticalScroll
+local OF_BAGITEMS_PER_ROW = 5
 
 local bagItemsCache = {}
 local selectedBagItem = nil
@@ -234,13 +235,16 @@ function OFBagItemsFrame_Update()
     end
     
     local scrollFrame = OFBagItemsScrollFrame
-    local offset = FauxScrollFrame_GetOffset(scrollFrame) or 0
+    local rawOffset = FauxScrollFrame_GetOffset(scrollFrame) or 0
+    -- Ensure vertical scrolling advances by full rows, not individual cells
+    local rowOffset = math.floor(rawOffset / OF_BAGITEMS_PER_ROW)
+    local offset = rowOffset * OF_BAGITEMS_PER_ROW
     
     -- Get all tradable items from bags
     bagItemsCache = OFGetBagItems()
     local numItems = #bagItemsCache
     
-    -- Always show all 20 buttons
+    -- Always show all 20 buttons arranged in a static 5x4 grid. Horizontal position must not change on scroll.
     for i = 1, 20 do
         local button = _G["OFBagItemButton" .. i]
         if button then

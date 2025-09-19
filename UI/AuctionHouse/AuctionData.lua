@@ -456,19 +456,62 @@ end
 -- Add "All" category first (shows all items, same as reset)
 OFAuctionFrame_CreateCategory("All")
 
-OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_ARMOR)
+-- Armor category (classID = 4)
+local armorCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_ARMOR)
+armorCategory:AddFilter(4) -- All armor
 
-OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_CONTAINERS)
+-- Containers category (classID = 1)
+local containerCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_CONTAINERS)
+containerCategory:AddFilter(1) -- All containers
 
-OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_CONSUMABLES)
+-- Consumables category (classID = 0)
+local consumableCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_CONSUMABLES)
+consumableCategory:AddFilter(0) -- All consumables
 
-OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_TRADE_GOODS)
+-- Trade Goods category (classID = 7)
+local tradeGoodsCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_TRADE_GOODS)
+tradeGoodsCategory:AddFilter(7) -- All trade goods
 
-OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_RECIPES)
+-- Recipes category (classID = 9)
+local recipeCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_RECIPES)
+recipeCategory:AddFilter(9) -- All recipes
 
-OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_REAGENT)
+-- Reagent category (classID = 5)
+local reagentCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_REAGENT)
+reagentCategory:AddFilter(5) -- All reagents
 
-OFAuctionFrame_CreateCategory("Enchants"):SetFlag("BLUE_HIGHLIGHT")
+-- Weapons category (classID = 2)
+local weaponCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_WEAPONS)
+weaponCategory:AddFilter(2) -- All weapons
+
+-- Miscellaneous category (classID = 15)
+local miscCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_MISCELLANEOUS)
+miscCategory:AddFilter(15) -- All miscellaneous
+
+-- Quiver category (classID = 11)
+local quiverCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_QUIVER)
+quiverCategory:AddFilter(11) -- All quivers
+
+-- Projectile category (classID = 6)
+local projectileCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_PROJECTILE or "Projectile")
+projectileCategory:AddFilter(6) -- All projectiles
+
+-- Quest items category (classID = 12)
+local questCategory = OFAuctionFrame_CreateCategory(AUCTION_CATEGORY_QUEST or "Quest")
+questCategory:AddFilter(12) -- All quest items
+
+-- Note: Gems (classID 3), Glyphs (classID 16), and Keys (classID 13) are intentionally not shown as categories
+-- but items with these classIDs will still appear in "All" category
+
+-- Catch-all for anything else - this includes hidden categories
+local otherCategory = OFAuctionFrame_CreateCategory("Other")
+-- Add various other classIDs that might not have specific categories
+otherCategory:AddFilter(3)  -- Gems (hidden from separate category)
+otherCategory:AddFilter(8)  -- classID 8
+otherCategory:AddFilter(10) -- classID 10 (Money - obsolete)
+otherCategory:AddFilter(13) -- Keys (hidden from separate category)
+otherCategory:AddFilter(14) -- classID 14 (Permanent - obsolete)
+otherCategory:AddFilter(16) -- Glyphs (hidden from separate category)
 
 ns.CategoryIndexToID = {
     nil, -- All (no filter)

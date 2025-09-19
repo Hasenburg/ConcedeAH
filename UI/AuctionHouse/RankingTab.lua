@@ -4,6 +4,46 @@ local WEEK_START_DAY = 4 -- Wednesday (1=Sunday, 2=Monday, etc.)
 local WEEK_START_HOUR = 8
 local SECONDS_IN_WEEK = 604800
 
+-- Function to clean player names with special characters
+local function CleanPlayerName(name)
+    if not name then return "" end
+    
+    -- Remove realm suffix if present
+    local cleanName = string.match(name, "^([^-]+)") or name
+    
+    -- More aggressive cleaning for WoW Classic
+    -- Replace all non-ASCII characters with nothing
+    local result = ""
+    for i = 1, string.len(cleanName) do
+        local byte = string.byte(cleanName, i)
+        if byte < 128 then
+            -- Keep only standard ASCII characters
+            result = result .. string.sub(cleanName, i, i)
+        end
+    end
+    
+    -- If the name becomes empty after cleaning, try to keep some characters
+    if result == "" then
+        -- Try to keep at least some letters
+        result = ""
+        for i = 1, string.len(cleanName) do
+            local byte = string.byte(cleanName, i)
+            if (byte >= 65 and byte <= 90) or  -- A-Z
+               (byte >= 97 and byte <= 122) or  -- a-z
+               (byte >= 48 and byte <= 57) then -- 0-9
+                result = result .. string.sub(cleanName, i, i)
+            end
+        end
+        
+        -- If still empty, use "Unknown"
+        if result == "" then
+            result = "Unknown"
+        end
+    end
+    
+    return result
+end
+
 function OFAuctionFrameRanking_OnLoad(self)
     self.selectedWeek = "current"  -- Default to Current Week view
     self.contributors = {}
@@ -56,6 +96,40 @@ function OFAuctionFrameRanking_OnLoad(self)
     SLASH_RANKINGDEBUG1 = "/rankingdebug"
     SLASH_RANKINGUPDATE1 = "/rankingupdate"
     SLASH_RANKINGBROADCAST1 = "/rankingbroadcast"
+    SLASH_CLEANNAME1 = "/cleanname"
+    SLASH_CLEANRANKINGDATA1 = "/cleanrankingdata"
+    
+    SlashCmdList["CLEANNAME"] = function(name)
+        if not name or name == "" then
+            print("Usage: /cleanname <playername>")
+            return
+        end
+        local cleaned = CleanPlayerName(name)
+        print("Original: " .. name)
+        print("Cleaned: " .. cleaned)
+        
+        -- Show byte values for debugging
+        print("Original bytes:")
+        for i = 1, string.len(name) do
+            local byte = string.byte(name, i)
+            print("  Pos " .. i .. ": " .. byte .. " (" .. string.char(byte) .. ")")
+        end
+    end
+    
+    SlashCmdList["CLEANRANKINGDATA"] = function()
+        -- Force re-clean all ranking data
+        if OFRankingData then
+            OFRankingData.dataCleaned = nil
+            OFAuctionFrameRanking_InitializeData()
+            print("|cFF00FF00[Ranking]|r All ranking data has been cleaned of special characters")
+            
+            if OFAuctionFrameRanking and OFAuctionFrameRanking:IsShown() then
+                OFAuctionFrameRanking_UpdateList()
+            end
+        else
+            print("|cFFFF0000[Ranking]|r No ranking data to clean")
+        end
+    end
     
     SlashCmdList["RANKINGSYNC"] = function()
         -- Forcing sync request
@@ -186,7 +260,7 @@ function OFAuctionFrameRanking_OnLoad(self)
         button:SetScript("OnEnter", function(self)
             if self.playerData then
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(self.playerData.name, 1, 1, 1)
+                GameTooltip:SetText(CleanPlayerName(self.playerData.name), 1, 1, 1)
                 GameTooltip:AddLine(string.format("Sales: %d points", self.playerData.sales), 0, 1, 0)
                 GameTooltip:AddLine(string.format("Purchases: %d points", self.playerData.purchases), 0.5, 0.5, 1)
                 GameTooltip:AddLine(string.format("Total: %d points", self.playerData.total), 1, 1, 0)
@@ -307,21 +381,24 @@ end
 function OFAuctionFrameRanking_AddSellerPoint(contributor)
     if not contributor or contributor == "" then return end
     
-    print("|cFF00FF00[Ranking]|r Adding SELLER point for: " .. contributor)
+    -- Clean the contributor name before storing
+    local cleanContributor = CleanPlayerName(contributor)
+    
+    print("|cFF00FF00[Ranking]|r Adding SELLER point for: " .. cleanContributor)
     
     OFAuctionFrameRanking_InitializeData()
     OFAuctionFrameRanking_CheckWeekReset()
     
-    OFRankingData.currentWeek.sellers[contributor] = (OFRankingData.currentWeek.sellers[contributor] or 0) + 1
-    OFRankingData.allTime.sellers[contributor] = (OFRankingData.allTime.sellers[contributor] or 0) + 1
+    OFRankingData.currentWeek.sellers[cleanContributor] = (OFRankingData.currentWeek.sellers[cleanContributor] or 0) + 1
+    OFRankingData.allTime.sellers[cleanContributor] = (OFRankingData.allTime.sellers[cleanContributor] or 0) + 1
     
     print(string.format("|cFF00FF00[Ranking]|r %s now has %d sales this week, %d total", 
-        contributor, 
-        OFRankingData.currentWeek.sellers[contributor], 
-        OFRankingData.allTime.sellers[contributor]))
+        cleanContributor, 
+        OFRankingData.currentWeek.sellers[cleanContributor], 
+        OFRankingData.allTime.sellers[cleanContributor]))
     
     if ns.RankingSync then
-        ns.RankingSync:BroadcastRankingUpdate(contributor, "seller", OFRankingData.currentWeek.sellers[contributor])
+        ns.RankingSync:BroadcastRankingUpdate(cleanContributor, "seller", OFRankingData.currentWeek.sellers[cleanContributor])
     end
     
     if OFAuctionFrameRanking and OFAuctionFrameRanking:IsShown() then
@@ -332,21 +409,24 @@ end
 function OFAuctionFrameRanking_AddBuyerPoint(contributor)
     if not contributor or contributor == "" then return end
     
-    print("|cFF00FFFF[Ranking]|r Adding BUYER point for: " .. contributor)
+    -- Clean the contributor name before storing
+    local cleanContributor = CleanPlayerName(contributor)
+    
+    print("|cFF00FFFF[Ranking]|r Adding BUYER point for: " .. cleanContributor)
     
     OFAuctionFrameRanking_InitializeData()
     OFAuctionFrameRanking_CheckWeekReset()
     
-    OFRankingData.currentWeek.buyers[contributor] = (OFRankingData.currentWeek.buyers[contributor] or 0) + 1
-    OFRankingData.allTime.buyers[contributor] = (OFRankingData.allTime.buyers[contributor] or 0) + 1
+    OFRankingData.currentWeek.buyers[cleanContributor] = (OFRankingData.currentWeek.buyers[cleanContributor] or 0) + 1
+    OFRankingData.allTime.buyers[cleanContributor] = (OFRankingData.allTime.buyers[cleanContributor] or 0) + 1
     
     print(string.format("|cFF00FFFF[Ranking]|r %s now has %d purchases this week, %d total", 
-        contributor, 
-        OFRankingData.currentWeek.buyers[contributor], 
-        OFRankingData.allTime.buyers[contributor]))
+        cleanContributor, 
+        OFRankingData.currentWeek.buyers[cleanContributor], 
+        OFRankingData.allTime.buyers[cleanContributor]))
     
     if ns.RankingSync then
-        ns.RankingSync:BroadcastRankingUpdate(contributor, "buyer", OFRankingData.currentWeek.buyers[contributor])
+        ns.RankingSync:BroadcastRankingUpdate(cleanContributor, "buyer", OFRankingData.currentWeek.buyers[cleanContributor])
     end
     
     if OFAuctionFrameRanking and OFAuctionFrameRanking:IsShown() then
@@ -357,6 +437,23 @@ end
 -- Keep old function for compatibility
 function OFAuctionFrameRanking_AddContributorPoint(contributor)
     OFAuctionFrameRanking_AddSellerPoint(contributor)
+end
+
+-- Helper function to clean all names in a data table
+local function CleanDataTable(dataTable)
+    if not dataTable then return {} end
+    
+    local cleanedData = {}
+    for name, value in pairs(dataTable) do
+        local cleanName = CleanPlayerName(name)
+        -- Combine values if the cleaned name already exists
+        if cleanedData[cleanName] then
+            cleanedData[cleanName] = cleanedData[cleanName] + value
+        else
+            cleanedData[cleanName] = value
+        end
+    end
+    return cleanedData
 end
 
 function OFAuctionFrameRanking_InitializeData()
@@ -377,6 +474,32 @@ function OFAuctionFrameRanking_InitializeData()
     if not OFRankingData.allTime.sellers then
         OFRankingData.allTime.sellers = OFRankingData.allTime or {}
         OFRankingData.allTime.buyers = {}
+    end
+    
+    -- Clean existing data to remove problematic characters
+    if not OFRankingData.dataCleaned then
+        -- Clean current week data
+        OFRankingData.currentWeek.sellers = CleanDataTable(OFRankingData.currentWeek.sellers)
+        OFRankingData.currentWeek.buyers = CleanDataTable(OFRankingData.currentWeek.buyers)
+        
+        -- Clean all time data
+        OFRankingData.allTime.sellers = CleanDataTable(OFRankingData.allTime.sellers)
+        OFRankingData.allTime.buyers = CleanDataTable(OFRankingData.allTime.buyers)
+        
+        -- Clean historical weeks
+        if OFRankingData.historicalWeeks then
+            for weekKey, weekData in pairs(OFRankingData.historicalWeeks) do
+                if weekData.sellers then
+                    weekData.sellers = CleanDataTable(weekData.sellers)
+                end
+                if weekData.buyers then
+                    weekData.buyers = CleanDataTable(weekData.buyers)
+                end
+            end
+        end
+        
+        -- Mark as cleaned so we don't do this every time
+        OFRankingData.dataCleaned = true
     end
 end
 
@@ -503,9 +626,9 @@ function OFAuctionFrameRanking_UpdateList()
                 button.rank:SetText(tostring(index))
             end
             
-            -- Set name
+            -- Set name (cleaned for display)
             if button.name then
-                button.name:SetText(entry.name)
+                button.name:SetText(CleanPlayerName(entry.name))
             end
             
             -- Set sales points
