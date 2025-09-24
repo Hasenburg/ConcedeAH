@@ -467,7 +467,11 @@ end
 
 ns.GetMyAuctions = function()
     local playerName = UnitName("player")
-    local filter = function(item) return item.owner == playerName end
+    -- Also get short name without realm for comparison
+    local playerNameShort = string.match(playerName, "^([^-]+)") or playerName
+    local filter = function(item) 
+        return item.owner == playerName or item.owner == playerNameShort
+    end
     return ns.AuctionHouseAPI:QueryAuctions(filter)
 end
 

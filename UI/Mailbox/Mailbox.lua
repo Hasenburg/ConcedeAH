@@ -512,8 +512,10 @@ function MailboxUI:RefreshPage()
             auction.deliveryType == ns.DELIVERY_TYPE_ANY or
             auction.deliveryType == ns.DELIVERY_TYPE_MAIL
         )
+        -- Skip auctions that have already been completed via trade
+        local isNotCompleted = auction.status ~= ns.AUCTION_STATUS_COMPLETED
 
-        if isSupported and isDeliveryMatch then
+        if isSupported and isDeliveryMatch and isNotCompleted then
             table.insert(auctionsList, auction)
         end
     end

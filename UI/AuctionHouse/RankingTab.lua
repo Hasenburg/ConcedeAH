@@ -11,37 +11,29 @@ local function CleanPlayerName(name)
     -- Remove realm suffix if present
     local cleanName = string.match(name, "^([^-]+)") or name
     
-    -- More aggressive cleaning for WoW Classic
-    -- Replace all non-ASCII characters with nothing
-    local result = ""
-    for i = 1, string.len(cleanName) do
-        local byte = string.byte(cleanName, i)
-        if byte < 128 then
-            -- Keep only standard ASCII characters
-            result = result .. string.sub(cleanName, i, i)
-        end
-    end
-    
-    -- If the name becomes empty after cleaning, try to keep some characters
-    if result == "" then
-        -- Try to keep at least some letters
-        result = ""
+    -- Return the name as-is, WoW handles UTF-8 properly
+    -- Only do minimal cleanup if the name has clearly broken characters
+    if cleanName:find("\0") or cleanName:find("\127") then
+        -- Name has null or delete characters, clean it
+        local result = ""
         for i = 1, string.len(cleanName) do
             local byte = string.byte(cleanName, i)
-            if (byte >= 65 and byte <= 90) or  -- A-Z
-               (byte >= 97 and byte <= 122) or  -- a-z
-               (byte >= 48 and byte <= 57) then -- 0-9
+            if byte >= 32 and byte < 127 then
+                -- Keep printable ASCII characters
+                result = result .. string.sub(cleanName, i, i)
+            elseif byte >= 192 then
+                -- Keep UTF-8 multibyte characters (non-ASCII letters)
                 result = result .. string.sub(cleanName, i, i)
             end
         end
-        
-        -- If still empty, use "Unknown"
         if result == "" then
             result = "Unknown"
         end
+        return result
     end
     
-    return result
+    -- Return the name without aggressive cleaning
+    return cleanName
 end
 
 function OFAuctionFrameRanking_OnLoad(self)

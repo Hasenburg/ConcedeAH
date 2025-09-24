@@ -186,9 +186,13 @@ end
 
 
 function AuctionHouseAPI:GetAuctionsWithOwnerAndStatus(owner, statuses)
+    -- Also check short name without realm
+    local ownerShort = string.match(owner, "^([^-]+)") or owner
+    
     local results = {}
     for _, auction in pairs(DB.auctions) do
-        if auction.owner == owner then
+        -- Check both full name and short name
+        if auction.owner == owner or auction.owner == ownerShort then
             for _, status in ipairs(statuses) do
                 if auction.status == status then
                     table.insert(results, auction)
@@ -201,9 +205,13 @@ function AuctionHouseAPI:GetAuctionsWithOwnerAndStatus(owner, statuses)
 end
 
 function AuctionHouseAPI:GetAuctionsWithBuyerAndStatus(buyer, statuses)
+    -- Also check short name without realm
+    local buyerShort = string.match(buyer, "^([^-]+)") or buyer
+    
     local results = {}
     for _, auction in pairs(DB.auctions) do
-        if auction.buyer == buyer then
+        -- Check both full name and short name
+        if auction.buyer == buyer or auction.buyer == buyerShort then
             for _, status in ipairs(statuses) do
                 if auction.status == status then
                     table.insert(results, auction)
@@ -220,9 +228,14 @@ end
 --   auctions that I own, a buyer has indicated interest in, and I haven't sent a mail/traded yet
 function AuctionHouseAPI:GetMySellPendingAuctions()
     local me = UnitName("player")
+    -- Also check short name without realm
+    local meShort = string.match(me, "^([^-]+)") or me
+    
     local pending = {}
     for _, auction in pairs(DB.auctions) do
-        if auction.owner == me and (auction.status == ns.AUCTION_STATUS_PENDING_TRADE or auction.status == ns.AUCTION_STATUS_PENDING_LOAN) then
+        -- Check both full name and short name
+        if (auction.owner == me or auction.owner == meShort) and 
+           (auction.status == ns.AUCTION_STATUS_PENDING_TRADE or auction.status == ns.AUCTION_STATUS_PENDING_LOAN) then
             table.insert(pending, auction)
         end
     end
@@ -580,15 +593,20 @@ end
 -- CancelAuction(auctionID)
 function AuctionHouseAPI:CancelAuction(auctionID)
     local me = UnitName("player")
+    -- Also get short name without realm for comparison
+    local meShort = string.match(me, "^([^-]+)") or me
+    
     local auction = DB.auctions[auctionID]
     if not auction then
         return nil, "Auction does not exist"
     end
     local isOwner
     if auction.wish then
-        isOwner = auction.buyer == me
+        -- Check both full name and short name
+        isOwner = (auction.buyer == me) or (auction.buyer == meShort)
     else
-        isOwner = auction.owner == me
+        -- Check both full name and short name
+        isOwner = (auction.owner == me) or (auction.owner == meShort)
     end
     if not isOwner then
         return nil, "You do not own this auction"
