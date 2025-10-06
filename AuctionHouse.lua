@@ -303,6 +303,42 @@ function AuctionHouse:OnInitialize()
         self:RequestLatestTradeState()
     end
 
+    -- Manual cleanup command
+    SLASH_GAHCLEANUP1 = "/gahcleanup"
+    SlashCmdList["GAHCLEANUP"] = function(msg)
+        print(ChatPrefix() .. " Cleaning up expired and invalid auctions...")
+        
+        local beforeCount = 0
+        for _ in pairs(self.db.auctions) do
+            beforeCount = beforeCount + 1
+        end
+        
+        -- Force expire auctions
+        API:ExpireAuctions()
+        
+        local afterCount = 0
+        for _ in pairs(self.db.auctions) do
+            afterCount = afterCount + 1
+        end
+        
+        local removed = beforeCount - afterCount
+        print(ChatPrefix() .. string.format(" Cleaned up %d auctions (%d remaining)", removed, afterCount))
+        
+        -- Force UI refresh
+        if OFAuctionFrame and OFAuctionFrame:IsShown() then
+            API:FireEvent(ns.T_ON_AUCTION_STATE_UPDATE)
+        end
+    end
+
+    -- Manual UI refresh command
+    SLASH_GAHREFRESH1 = "/gahrefresh"
+    SlashCmdList["GAHREFRESH"] = function(msg)
+        print(ChatPrefix() .. " Refreshing auction house UI...")
+        if OFAuctionFrame and OFAuctionFrame:IsShown() then
+            API:FireEvent(ns.T_ON_AUCTION_STATE_UPDATE)
+        end
+    end
+
     -- Request guild roster update to ensure we have member data
     GuildRoster()
     -- Repeat guild roster update after delay to ensure it's loaded
@@ -512,8 +548,16 @@ function AuctionHouse:OnCommReceived(prefix, message, distribution, sender)
 
     -- Auction
     if dataType == T_AUCTION_ADD_OR_UPDATE then
-        API:UpdateDB(payload)
-        API:FireEvent(ns.T_AUCTION_ADD_OR_UPDATE, {auction = payload.auction, source = payload.source})
+        -- Filter out completed, expired, or invalid auctions during sync
+        local auction = payload.auction
+        if auction and auction.status and 
+           auction.status ~= ns.AUCTION_STATUS_COMPLETED and
+           (not auction.expiresAt or auction.expiresAt > time()) then
+            API:UpdateDB(payload)
+            API:FireEvent(ns.T_AUCTION_ADD_OR_UPDATE, {auction = payload.auction, source = payload.source})
+        else
+            ns.DebugLog("[DEBUG] Ignoring completed/expired/invalid auction during sync:", auction and auction.id or "nil")
+        end
 
     elseif dataType == T_AUCTION_DELETED then
         API:DeleteAuctionInternal(payload, true)
@@ -970,19 +1014,24 @@ function AuctionHouse:BuildDeltaState(requesterRevision, requesterAuctions)
             -- Send all auctions - the requester is likely a new player or was offline for long
             local totalAuctions = 0
             local skippedAuctions = 0
+            local now = time()
             for id, auction in pairs(self.db.auctions) do
                 totalAuctions = totalAuctions + 1
-                -- Send ALL auctions except completed ones and nil status
-                -- This includes: ACTIVE, PENDING_TRADE, PENDING_LOAN, SENT_COD, SENT_LOAN
-                if auction.status and auction.status ~= ns.AUCTION_STATUS_COMPLETED then
+                -- Skip completed, expired, or invalid auctions from sync
+                local shouldSkip = (auction.status == ns.AUCTION_STATUS_COMPLETED) or
+                                   (not auction.status) or
+                                   (auction.status ~= ns.AUCTION_STATUS_ACTIVE) or
+                                   (auction.expiresAt and auction.expiresAt <= now)
+                
+                if not shouldSkip then
                     auctionsToSend[id] = auction
                     auctionCount = auctionCount + 1
                     ns.DebugLog(string.format("[DEBUG] Including auction %s status=%s", 
                         id, auction.status or "nil"))
                 else
                     skippedAuctions = skippedAuctions + 1
-                    ns.DebugLog(string.format("[DEBUG] Skipping auction %s status=%s", 
-                        id, auction.status or "nil"))
+                    ns.DebugLog(string.format("[DEBUG] Skipping auction %s status=%s expired=%s", 
+                        id, auction.status or "nil", (auction.expiresAt and auction.expiresAt <= now) and "yes" or "no"))
                 end
             end
             print(ChatPrefix() .. string.format(" BuildDeltaState: Preparing %d/%d auctions (skipped %d completed)", 
@@ -991,11 +1040,20 @@ function AuctionHouse:BuildDeltaState(requesterRevision, requesterAuctions)
                 auctionCount, skippedAuctions, totalAuctions))
         else
             -- Normal delta sync - only send updated auctions
+            local now = time()
             for id, auction in pairs(self.db.auctions) do
                 local requesterRev = requesterAuctionLookup[id]
                 if not requesterRev or (auction.rev > requesterRev) then
-                    auctionsToSend[id] = auction
-                    auctionCount = auctionCount + 1
+                    -- Skip completed, expired, or invalid auctions even in delta sync
+                    local shouldSkip = (auction.status == ns.AUCTION_STATUS_COMPLETED) or
+                                       (not auction.status) or
+                                       (auction.status ~= ns.AUCTION_STATUS_ACTIVE) or
+                                       (auction.expiresAt and auction.expiresAt <= now)
+                    
+                    if not shouldSkip then
+                        auctionsToSend[id] = auction
+                        auctionCount = auctionCount + 1
+                    end
                 end
             end
         end

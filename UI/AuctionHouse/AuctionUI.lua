@@ -1839,9 +1839,12 @@ function OFAuctionFrameBrowse_Update()
     else
         -- For Marketplace, we want to see ALL offers including our own
         if OFAuctionFrameBrowse.showOnlyOffers then
-            -- Get ALL non-completed auctions (show active, pending, sent, etc.)
+            -- Get only ACTIVE auctions that haven't expired
+            local now = time()
             local allAuctions = ns.AuctionHouseAPI:QueryAuctions(function(item) 
-                return item.status and item.status ~= ns.AUCTION_STATUS_COMPLETED
+                return item.status and 
+                       item.status == ns.AUCTION_STATUS_ACTIVE and
+                       (not item.expiresAt or item.expiresAt > now)
             end)
             auctions = allAuctions or {}
         else

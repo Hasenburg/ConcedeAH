@@ -20,5 +20,9 @@ ns.GetConfig = function()
     if defaultConfig.version >= AHConfigSaved.version then
         AHConfigSaved = defaultConfig
     end
+    -- Force unlimited auctions in case of old cached config
+    if not AHConfigSaved.auctionCap or AHConfigSaved.auctionCap < 1000 then
+        AHConfigSaved.auctionCap = 9999
+    end
     return AHConfigSaved
 end

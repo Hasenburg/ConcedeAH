@@ -279,9 +279,12 @@ end
 
 local function CreateBrowseAuctionFilters(browseParams)
     local playerName = UnitName("player")
+    local now = time()
     local filters = {
         function(item) return item.owner ~= playerName end,
         function(item) return item.status == ns.AUCTION_STATUS_ACTIVE end,
+        -- remove expired auctions
+        function(item) return not item.expiresAt or item.expiresAt > now end,
         -- remove auctions from people that I blacklisted
         function(item) return not ns.BlacklistAPI:IsBlacklisted(playerName, ns.BLACKLIST_TYPE_ORDERS, item.owner) end,
         -- remove auctions from people that blacklisted me

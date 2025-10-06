@@ -96,6 +96,17 @@ marketplaceEventFrame:SetScript("OnEvent", function(self, event, itemID, success
     end
 end)
 
+-- Register for auction updates to refresh marketplace when auctions change
+local function updateMarketplaceIfVisible()
+    if OFAuctionFrameMarketplace and OFAuctionFrameMarketplace:IsVisible() then
+        OFAuctionFrameMarketplace_Update()
+    end
+end
+
+ns.AuctionHouseAPI:RegisterEvent(ns.T_ON_AUCTION_STATE_UPDATE, updateMarketplaceIfVisible)
+ns.AuctionHouseAPI:RegisterEvent(ns.T_AUCTION_ADD_OR_UPDATE, updateMarketplaceIfVisible)
+ns.AuctionHouseAPI:RegisterEvent(ns.T_AUCTION_DELETED, updateMarketplaceIfVisible)
+
 function OFAuctionFrameMarketplace_OnShow(self)
     -- Update title
     OFMarketplaceTitle:SetText("ConcedeAH - Marketplace")
@@ -221,10 +232,19 @@ function OFAuctionFrameMarketplace_Update()
         end
     end
     
-    -- Filter only offers (not requests) that are not completed, and apply search/hide filters
+    -- Filter only offers (not requests) that are active, and apply search/hide filters
     local debugCount = 0
+    local now = time()
     for _, auction in ipairs(allAuctions) do
-        if not auction.isRequest and auction.status and auction.status ~= ns.AUCTION_STATUS_COMPLETED then
+        -- Only show active auctions that haven't expired and are not completed
+        if not auction.isRequest and 
+           auction.status == ns.AUCTION_STATUS_ACTIVE and 
+           auction.status ~= ns.AUCTION_STATUS_COMPLETED and
+           auction.status ~= ns.AUCTION_STATUS_PENDING_TRADE and
+           auction.status ~= ns.AUCTION_STATUS_PENDING_LOAN and
+           auction.status ~= ns.AUCTION_STATUS_SENT_COD and
+           auction.status ~= ns.AUCTION_STATUS_SENT_LOAN and
+           (not auction.expiresAt or auction.expiresAt > now) then
             debugCount = debugCount + 1
             local shouldShow = true
             

@@ -753,6 +753,7 @@ function AuctionHouseAPI:ExpireAuctions()
     local bankruptcies = {}
 
     for k, v in pairs(DB.auctions) do
+        -- Delete expired auctions
         if v.expiresAt and v.expiresAt <= now then
             if v.status == ns.AUCTION_STATUS_SENT_LOAN then
                 bankruptcies[k] = v
@@ -760,10 +761,21 @@ function AuctionHouseAPI:ExpireAuctions()
                 deletes[k] = v
             end
         end
+        
+        -- Also clean up completed auctions (shouldn't normally exist, but just in case)
+        if v.status == ns.AUCTION_STATUS_COMPLETED then
+            deletes[k] = v
+        end
+        
+        -- Clean up auctions with invalid or missing status
+        if not v.status then
+            ns.DebugLog(string.format("[DEBUG] Auction %s has no status, removing", k))
+            deletes[k] = v
+        end
     end
 
     for k, v in pairs(deletes) do
-        ns.DebugLog(string.format("[DEBUG] Auction %s expired", k))
+        ns.DebugLog(string.format("[DEBUG] Auction %s expired or invalid, removing", k))
         AuctionHouseAPI:DeleteAuctionInternal(k)
     end
     for k, v in pairs(bankruptcies) do
